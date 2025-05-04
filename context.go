@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"image/color"
 	"math/rand"
 	"time"
 
@@ -12,22 +11,6 @@ var (
 	_ Context = (*ContextImpl)(nil)
 	_ Context = (*RandomContext)(nil)
 )
-
-type BitmapDisplayer interface {
-	DrawRGBBitmap(x int16, y int16, data []uint16, w int16, h int16) error
-	DrawRGBBitmap8(x int16, y int16, data []uint8, w int16, h int16) error
-}
-
-type LineDisplayer interface {
-	DrawFastHLine(x0 int16, x1 int16, y int16, c color.RGBA)
-	DrawFastVLine(x int16, y0 int16, y1 int16, c color.RGBA)
-}
-
-type RectangleDisplayer interface {
-	FillRectangle(x int16, y int16, width int16, height int16, c color.RGBA) error
-	FillRectangleWithBuffer(x int16, y int16, width int16, height int16, buffer []color.RGBA) error
-	FillScreen(c color.RGBA)
-}
 
 type Context interface {
 	D() drivers.Displayer
