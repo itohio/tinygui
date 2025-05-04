@@ -1,0 +1,50 @@
+package ui
+
+import (
+	"image/color"
+	"strings"
+
+	"tinygo.org/x/drivers"
+	"tinygo.org/x/drivers/image/png"
+)
+
+func HLine(d drivers.Displayer, x, y, w int16, c color.RGBA) {
+	for w > 0 {
+		d.SetPixel(x, y, c)
+		x++
+		w--
+	}
+}
+
+func VLine(d drivers.Displayer, x, y, h int16, c color.RGBA) {
+	for h > 0 {
+		d.SetPixel(x, y, c)
+		y++
+		h--
+	}
+}
+
+var buffer [3 * 256]uint16
+
+// NOTE: This part does not work with tinygo version 0.23.0 windows/amd64 (using go version go1.18 and LLVM version 14.0.0)
+// The effect is that some memory overwrite occurs (serios BUG that should be isolated) and panics happen.
+// However, it is mostly not needed due to the fact, that raw bytes of the icons are smaller than embedded PNG files.
+func DrawPng(d BitmapDisplayer, x0, y0 int16, pngImage string) error {
+	p := strings.NewReader(pngImage)
+	png.SetCallback(buffer[:], func(data []uint16, x, y, w, h, width, height int16) {
+		// W, H := d.Size()
+		// println(x0+x, y0+y, w, h, width, height, W, H, len(data))
+		err := d.DrawRGBBitmap(x0+x, y0+y, data[:w*h], w, h)
+		if err != nil {
+			println("DrawRGBBitmap: " + err.Error())
+		}
+	})
+
+	// w, h := d.Size()
+	_, err := png.Decode(p)
+	if err != nil {
+		println("DrawPng Decode: " + err.Error())
+	}
+	// w, h = d.Size()
+	return err
+}
