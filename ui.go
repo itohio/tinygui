@@ -1,0 +1,30 @@
+package ui
+
+type UserCommand byte
+
+const (
+	IDLE UserCommand = iota
+	UP
+	DOWN
+	LEFT
+	RIGHT
+	NEXT
+	PREV
+	ENTER
+	ESC
+	BACK
+	DEL
+	RESET
+	SAVE
+	LOAD
+	LONG_UP
+	LONG_DOWN
+	LONG_LEFT
+	LONG_RIGHT
+	LONG_ENTER
+	LONG_ESC
+	LONG_BACK
+	LONG_DEL
+	LONG_RESET
+	USER UserCommand = 64
+)
