@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"io"
+	"machine"
 	"runtime"
 )
 
@@ -16,7 +17,7 @@ func NewCommandStreamMux(r io.Reader, commands map[string]func([]byte)) *Command
 	return &CommandStreamMux{
 		r:    r,
 		c:    commands,
-		buf:  make([]byte, 64),     // Buffer for reading chunks
+		buf:  make([]byte, 1),      // Buffer for reading chunks
 		line: make([]byte, 0, 128), // Buffer for accumulating a full line
 	}
 }
@@ -97,4 +98,28 @@ func (m *CommandStreamMux) processLine(line []byte) {
 	if fn, exists := m.c[cmd]; exists {
 		fn(arg)
 	}
+}
+
+type SerialReader struct {
+	s machine.Serialer
+}
+
+func NewSerialReader(s machine.Serialer) *SerialReader {
+	return &SerialReader{s: s}
+}
+
+func (s *SerialReader) Read(buf []byte) (int, error) {
+	n := 0
+	for i := range buf {
+		if s.s.Buffered() == 0 {
+			break
+		}
+		b, err := s.s.ReadByte()
+		if err != nil {
+			return n, err
+		}
+		buf[i] = b
+		n++
+	}
+	return n, nil
 }
