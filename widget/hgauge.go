@@ -32,3 +32,11 @@ func (w *HorizontalGauge) Draw(ctx ui.Context) {
 		}
 	}
 }
+
+func NewHGaugeArray(w, h uint16, color color.RGBA, value ...func() uint16) []ui.Widget {
+	widgets := make([]ui.Widget, len(value))
+	for i, fn := range value {
+		widgets[i] = NewHGauge(w, h, fn, color)
+	}
+	return widgets
+}

@@ -27,3 +27,11 @@ func (l *Label) Draw(ctx ui.Context) {
 	x, y := ctx.DisplayPos()
 	tinyfont.WriteLine(ctx.D(), l.font, x, y+int16(l.Height), l.text(), l.color)
 }
+
+func NewLabelArray(w, h uint16, font tinyfont.Fonter, color color.RGBA, text ...func() string) []ui.Widget {
+	widgets := make([]ui.Widget, len(text))
+	for i, fn := range text {
+		widgets[i] = NewLabel(w, h, font, fn, color)
+	}
+	return widgets
+}
