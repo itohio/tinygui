@@ -3,16 +3,18 @@ package ui
 import (
 	"bytes"
 	"io"
-	"machine"
 	"runtime"
 )
 
+// CommandStreamMux reads line-based commands from an io.Reader and dispatches
+// them to registered handlers without extra allocations.
 type CommandStreamMux struct {
 	r         io.Reader
 	c         map[string]func([]byte)
 	buf, line []byte
 }
 
+// NewCommandStreamMux builds a mux for the provided reader and command map.
 func NewCommandStreamMux(r io.Reader, commands map[string]func([]byte)) *CommandStreamMux {
 	return &CommandStreamMux{
 		r:    r,
@@ -98,28 +100,4 @@ func (m *CommandStreamMux) processLine(line []byte) {
 	if fn, exists := m.c[cmd]; exists {
 		fn(arg)
 	}
-}
-
-type SerialReader struct {
-	s machine.Serialer
-}
-
-func NewSerialReader(s machine.Serialer) *SerialReader {
-	return &SerialReader{s: s}
-}
-
-func (s *SerialReader) Read(buf []byte) (int, error) {
-	n := 0
-	for i := range buf {
-		if s.s.Buffered() == 0 {
-			break
-		}
-		b, err := s.s.ReadByte()
-		if err != nil {
-			return n, err
-		}
-		buf[i] = b
-		n++
-	}
-	return n, nil
 }

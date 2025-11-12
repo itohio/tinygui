@@ -12,6 +12,8 @@ var (
 	_ Context = (*RandomContext)(nil)
 )
 
+// Context exposes drawing metadata for a widget. Containers clone contexts for
+// their children, adjusting origins as needed.
 type Context interface {
 	D() drivers.Displayer
 	Size() (W, H uint16)
@@ -24,7 +26,7 @@ type Context interface {
 	Widget() Widget
 }
 
-// ContextImpl is a simple Widget drawing context implementation
+// ContextImpl is a concrete context carrying a displayer and positional state.
 type ContextImpl struct {
 	// D is used to display pixers
 	d      drivers.Displayer
@@ -39,6 +41,7 @@ type ContextImpl struct {
 	posX, posY int16
 }
 
+// NewContext returns a ContextImpl rooted at (x,y) with fixed size.
 func NewContext(d drivers.Displayer, w, h uint16, x, y int16) ContextImpl {
 	return ContextImpl{
 		d: d,
@@ -69,6 +72,8 @@ func (c *ContextImpl) SetPos(x, y int16) bool {
 	return true
 }
 
+// Clone creates a child context sharing the underlying displayer and adjusting
+// the drawing origin for a nested widget.
 func (c *ContextImpl) Clone(widget Widget, W, H uint16) Context {
 	x, y := c.DisplayPos()
 	ret := NewContext(c.d, W, H, x, y)
@@ -85,6 +90,8 @@ type RandomContext struct {
 	interval time.Duration
 }
 
+// NewRandomContext returns a context that periodically moves the origin within
+// the physical display bounds to avoid static burn-in.
 func NewRandomContext(d drivers.Displayer, interval time.Duration, w, h uint16) RandomContext {
 	dW, dH := d.Size()
 	return RandomContext{

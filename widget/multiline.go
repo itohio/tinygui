@@ -7,6 +7,7 @@ import (
 	"tinygo.org/x/tinyfont"
 )
 
+// MultilineLabel renders multiple strings stacked vertically.
 type MultilineLabel struct {
 	ui.WidgetBase
 	font     tinyfont.Fonter
@@ -15,6 +16,7 @@ type MultilineLabel struct {
 	maxLines int
 }
 
+// NewMultilineLabel constructs a label with up to maxLines entries.
 func NewMultilineLabel(w, h uint16, maxLines int, font tinyfont.Fonter, text func() []string, color color.RGBA) *MultilineLabel {
 	return &MultilineLabel{
 		WidgetBase: ui.NewWidgetBase(w, h*uint16(maxLines)),
@@ -38,12 +40,15 @@ func (l *MultilineLabel) Draw(ctx ui.Context) {
 	}
 }
 
+// Log maintains a fixed-size circular buffer of recent log lines and can draw
+// them using the underlying multiline label.
 type Log struct {
 	*MultilineLabel
 	lines    []string
 	numLines int
 }
 
+// NewLog constructs a log view with a fixed number of lines.
 func NewLog(w, h uint16, maxLines int, font tinyfont.Fonter, color color.RGBA) *Log {
 	ret := &Log{
 		lines:    make([]string, maxLines),

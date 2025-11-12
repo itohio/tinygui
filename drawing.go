@@ -24,6 +24,7 @@ type RectangleDisplayer interface {
 	FillScreen(c color.RGBA)
 }
 
+// HLine draws a horizontal line one pixel thick on any displayer.
 func HLine(d drivers.Displayer, x, y, w int16, c color.RGBA) {
 	for w > 0 {
 		d.SetPixel(x, y, c)
@@ -32,6 +33,7 @@ func HLine(d drivers.Displayer, x, y, w int16, c color.RGBA) {
 	}
 }
 
+// VLine draws a vertical line one pixel thick on any displayer.
 func VLine(d drivers.Displayer, x, y, h int16, c color.RGBA) {
 	for h > 0 {
 		d.SetPixel(x, y, c)
@@ -45,6 +47,7 @@ var buffer [3 * 256]uint16
 // NOTE: This part does not work with tinygo version 0.23.0 windows/amd64 (using go version go1.18 and LLVM version 14.0.0)
 // The effect is that some memory overwrite occurs (serios BUG that should be isolated) and panics happen.
 // However, it is mostly not needed due to the fact, that raw bytes of the icons are smaller than embedded PNG files.
+// DrawPng decodes pngImage and streams pixels into the provided displayer.
 func DrawPng(d BitmapDisplayer, x0, y0 int16, pngImage string) error {
 	p := strings.NewReader(pngImage)
 	png.SetCallback(buffer[:], func(data []uint16, x, y, w, h, width, height int16) {

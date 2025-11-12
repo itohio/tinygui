@@ -1,3 +1,5 @@
+//go:build stm32 || rp2040 || esp32 || esp32c3 || nrf || sam || teensy || fe310 || hid || xiao
+
 package ui
 
 import (
@@ -5,63 +7,35 @@ import (
 	"time"
 )
 
-type UserCommand byte
-
-const (
-	IDLE UserCommand = iota
-	UP
-	DOWN
-	LEFT
-	RIGHT
-	NEXT
-	PREV
-	ENTER
-	ESC
-	BACK
-	DEL
-	RESET
-	SAVE
-	LOAD
-	LONG_UP
-	LONG_DOWN
-	LONG_LEFT
-	LONG_RIGHT
-	LONG_ENTER
-	LONG_ESC
-	LONG_BACK
-	LONG_DEL
-	LONG_RESET
-	USER UserCommand = 64
-)
-
-// PeekButton checks the state of the button depending on the time it was pressed.
+// PeekButton waits for a pin press to finish and returns how long the button
+// was held down. Hardware watchdogs are serviced while waiting.
 func PeekButton(p machine.Pin) time.Duration {
 	now := time.Now()
 	time.Sleep(time.Millisecond * 10)
 	for !p.Get() {
 		time.Sleep(time.Millisecond)
-		machine.Watchdog.Update()
+		updateWatchdog()
 	}
 	return time.Since(now)
 }
 
-// DurationAdd is a helper function to increase duration in convenient way.
+// DurationAdd increases a duration by a delta scaled to the order of magnitude
+// of the duration, providing a simple adjustment mechanism for timers.
 func DurationAdd(dur, delta time.Duration) time.Duration {
 	l := pseudo_pow10(pseudo_log10(dur) - 1)
 
 	return dur + time.Duration(delta)*l
 }
 
-// DurationSub is a helper function to increase duration in convenient way.
+// DurationSub decreases a duration by a delta scaled to the order of magnitude
+// of the duration, mirroring DurationAdd.
 func DurationSub(dur, delta time.Duration) time.Duration {
 	l := pseudo_pow10(pseudo_log10(dur) - 1)
 
 	return dur - time.Duration(delta)*l
 }
 
-// pseudo_pow10 computes 10^exp, where exp is given as a time.Duration.
-// It treats the duration (in nanoseconds) as the integer exponent.
-// If exp is negative, it returns 0 since 10^negative is undefined for integers.
+// pseudo_pow10 computes 10^exp where exp is the integer value of a duration.
 func pseudo_pow10(exp time.Duration) time.Duration {
 	if exp < 0 {
 		return 0
@@ -74,9 +48,7 @@ func pseudo_pow10(exp time.Duration) time.Duration {
 	return result
 }
 
-// pseudo_log10 calculates the integer base-10 logarithm of n, where n is a time.Duration.
-// It returns the largest time.Duration `x` such that 10^x <= n.
-// If n <= 0, it returns an error.
+// pseudo_log10 returns the integer base-10 logarithm for positive durations.
 func pseudo_log10(n time.Duration) time.Duration {
 	if n <= 0 {
 		return 0
