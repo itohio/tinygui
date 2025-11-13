@@ -7,173 +7,126 @@ import (
 	"tinygo.org/x/tinyfont"
 )
 
-// InteractiveChoice embeds a Label and cycles through predefined string items on user commands.
-type InteractiveChoice struct {
-	*Label
-
-	items    []string
-	index    int
-	external *int
-	onChange func(int)
-	enabled  bool
+// InteractiveLabelChoice renders selectable text options using a label while delegating navigation to InteractiveSelector.
+type InteractiveLabelChoice struct {
+	Label
+	selector *InteractiveSelector[string]
+	onChange func(int, string)
 }
 
-// InteractiveChoiceOption configures optional behaviour for InteractiveChoice.
-type InteractiveChoiceOption func(*InteractiveChoice)
+// InteractiveLabelChoiceOption configures label choice construction.
+type InteractiveLabelChoiceOption func(*labelChoiceConfig)
 
-// WithChoiceIndex wires an external index pointer that stays synchronised with the widget.
-func WithChoiceIndex(ptr *int) InteractiveChoiceOption {
-	return func(c *InteractiveChoice) {
-		c.external = ptr
-		if ptr != nil {
-			c.index = *ptr
-		}
+type labelChoiceConfig struct {
+	font         tinyfont.Fonter
+	color        color.RGBA
+	selectorOpts []InteractiveSelectorOption[string]
+	onChange     func(int, string)
+}
+
+// WithLabelChoiceIndex wires an external index pointer that stays synchronised with the widget.
+func WithLabelChoiceIndex(ptr *int) InteractiveLabelChoiceOption {
+	return func(cfg *labelChoiceConfig) {
+		cfg.selectorOpts = append(cfg.selectorOpts, WithSelectorIndex[string](ptr))
 	}
 }
 
-// WithChoiceChange registers a callback invoked whenever the selection changes.
-func WithChoiceChange(fn func(int)) InteractiveChoiceOption {
-	return func(c *InteractiveChoice) {
-		c.onChange = fn
+// WithLabelChoiceChange registers a callback invoked whenever the selection changes.
+func WithLabelChoiceChange(fn func(int, string)) InteractiveLabelChoiceOption {
+	return func(cfg *labelChoiceConfig) {
+		cfg.onChange = fn
 	}
 }
 
-// WithChoiceDisabled initialises the choice in a disabled state.
-func WithChoiceDisabled() InteractiveChoiceOption {
-	return func(c *InteractiveChoice) {
-		c.enabled = false
+// WithLabelChoiceDisabled initialises the choice in a disabled state.
+func WithLabelChoiceDisabled() InteractiveLabelChoiceOption {
+	return func(cfg *labelChoiceConfig) {
+		cfg.selectorOpts = append(cfg.selectorOpts, WithSelectorDisabled[string]())
 	}
 }
 
-// WithChoiceFont assigns the font used for rendering the active item.
-func WithChoiceFont(font tinyfont.Fonter) InteractiveChoiceOption {
-	return func(c *InteractiveChoice) {
-		c.SetFont(font)
+// WithLabelChoiceFont assigns the font used for rendering the active item.
+func WithLabelChoiceFont(font tinyfont.Fonter) InteractiveLabelChoiceOption {
+	return func(cfg *labelChoiceConfig) {
+		cfg.font = font
 	}
 }
 
-// WithChoiceColor assigns the text colour for the active item.
-func WithChoiceColor(col color.RGBA) InteractiveChoiceOption {
-	return func(c *InteractiveChoice) {
-		c.SetColor(col)
+// WithLabelChoiceColor assigns the text colour for the active item.
+func WithLabelChoiceColor(col color.RGBA) InteractiveLabelChoiceOption {
+	return func(cfg *labelChoiceConfig) {
+		cfg.color = col
 	}
 }
 
-// NewInteractiveChoice constructs a label-backed selector that cycles through the provided items.
-func NewInteractiveChoice(width, height uint16, items []string, opts ...InteractiveChoiceOption) *InteractiveChoice {
-	c := &InteractiveChoice{
-		items:   items,
-		enabled: true,
-	}
-
-	label := NewLabel(width, height, nil, nil, color.RGBA{})
-	label.SetTextProvider(func() string { return c.currentText() })
-	c.Label = label
-
+// NewInteractiveLabelChoice constructs a label-backed selector that cycles through the provided items.
+func NewInteractiveLabelChoice(width, height uint16, items []string, opts ...InteractiveLabelChoiceOption) *InteractiveLabelChoice {
+	cfg := labelChoiceConfig{}
 	for _, opt := range opts {
-		opt(c)
+		opt(&cfg)
+	}
+	if cfg.font == nil {
+		cfg.font = &tinyfont.TomThumb
 	}
 
-	c.load(false)
-	return c
+	selectorOpts := cfg.selectorOpts
+	choice := &InteractiveLabelChoice{}
+	selectorOpts = append(selectorOpts, WithSelectorChange[string](func(i int, value string) {
+		if cfg.onChange != nil {
+			cfg.onChange(i, value)
+		}
+		choice.Label.SetText(value)
+	}))
+
+	selector := NewInteractiveSelector(items, selectorOpts...)
+	choice.selector = selector
+
+	value, _ := selector.Current()
+	choice.Label = *NewLabel(width, height, cfg.font, nil, cfg.color)
+	choice.Label.SetText(value)
+
+	return choice
+}
+
+// Selector exposes the underlying selector for advanced coordination (commit/cancel flows).
+func (c *InteractiveLabelChoice) Selector() *InteractiveSelector[string] {
+	return c.selector
 }
 
 // Enabled reports whether the selector accepts user interaction.
-func (c *InteractiveChoice) Enabled() bool {
-	return c.enabled
+func (c *InteractiveLabelChoice) Enabled() bool {
+	return c.selector.Enabled()
 }
 
-// SetEnabled toggles user interaction.
-func (c *InteractiveChoice) SetEnabled(v bool) {
-	c.enabled = v
+// SetEnabled toggles interaction ability.
+func (c *InteractiveLabelChoice) SetEnabled(v bool) {
+	c.selector.SetEnabled(v)
 	if !v {
-		c.SetSelected(false)
+		c.Label.SetSelected(false)
 	}
 }
 
-// Interact processes navigation commands and rotates the selection accordingly.
-func (c *InteractiveChoice) Interact(cmd ui.UserCommand) bool {
-	if !c.enabled || len(c.items) == 0 {
-		return false
-	}
-
-	switch cmd {
-	case ui.UP, ui.NEXT, ui.RIGHT, ui.LONG_UP:
-		c.shift(1)
+// Interact processes navigation commands and updates the label text accordingly.
+func (c *InteractiveLabelChoice) Interact(cmd ui.UserCommand) bool {
+	handled := c.selector.Handle(cmd)
+	if handled {
+		if cmd == ui.ESC || cmd == ui.BACK {
+			return c.Label.WidgetBase.Interact(cmd)
+		}
+		value, _ := c.selector.Current()
+		c.Label.SetText(value)
 		return true
-	case ui.DOWN, ui.PREV, ui.LEFT, ui.LONG_DOWN:
-		c.shift(-1)
-		return true
-	case ui.ESC, ui.BACK:
-		c.load(false)
-		return c.Label.WidgetBase.Interact(cmd)
-	default:
-		return c.Label.WidgetBase.Interact(cmd)
 	}
+	return c.Label.WidgetBase.Interact(cmd)
 }
 
-// OnSelect is part of the navigation lifecycle; no-op for choices.
-func (c *InteractiveChoice) OnSelect() {}
-
-// OnDeselect is part of the navigation lifecycle; no-op for choices.
-func (c *InteractiveChoice) OnDeselect() {}
-
-// OnExit restores the external index (if any) when leaving the widget.
-func (c *InteractiveChoice) OnExit() {
-	c.load(false)
+// Draw renders the current label.
+func (c *InteractiveLabelChoice) Draw(ctx ui.Context) {
+	c.Label.Draw(ctx)
 }
 
-func (c *InteractiveChoice) shift(delta int) {
-	if len(c.items) == 0 {
-		return
-	}
-	index := wrapIndex(c.index+delta, len(c.items))
-	c.applyIndex(index, true)
-}
-
-func (c *InteractiveChoice) load(notify bool) {
-	if len(c.items) == 0 {
-		c.index = 0
-		return
-	}
-	index := c.currentIndex()
-	c.applyIndex(wrapIndex(index, len(c.items)), notify)
-}
-
-func (c *InteractiveChoice) currentIndex() int {
-	if c.external != nil {
-		return *c.external
-	}
-	return c.index
-}
-
-func (c *InteractiveChoice) applyIndex(index int, notify bool) {
-	if len(c.items) == 0 {
-		c.index = 0
-		return
-	}
-	if index < 0 {
-		index = 0
-	}
-	if index >= len(c.items) {
-		index = len(c.items) - 1
-	}
-	c.index = index
-	if c.external != nil {
-		*c.external = index
-	}
-	if notify && c.onChange != nil {
-		c.onChange(index)
-	}
-}
-
-func (c *InteractiveChoice) currentText() string {
-	if len(c.items) == 0 {
-		return ""
-	}
-	idx := c.index
-	if idx < 0 || idx >= len(c.items) {
-		idx = wrapIndex(idx, len(c.items))
-	}
-	return c.items[idx]
+// currentText returns the selected text for testing or diagnostics.
+func (c *InteractiveLabelChoice) currentText() string {
+	value, _ := c.selector.Current()
+	return value
 }

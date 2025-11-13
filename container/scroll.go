@@ -129,11 +129,14 @@ func (s *Scroll) drawVisible(ctx ui.Context, viewportW, viewportH int16) {
 		if visible {
 			item.Draw(localCtx)
 		}
-		if s.layouter == nil {
+		if !visible {
+			if s.layouter != nil && !s.layouter(localCtx, item) {
+				break
+			}
 			continue
 		}
-		if !s.layouter(localCtx, item) {
-			return
+		if s.layouter != nil && !s.layouter(localCtx, item) {
+			break
 		}
 	}
 }

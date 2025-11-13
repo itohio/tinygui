@@ -1,15 +1,19 @@
+// Package layout provides generic strategies to lay out objects that implement the Sizer interface.
+// Layouter is a general-purpose arrangement utility that composes objects in a desired order.
+// Layout strategies work with any object providing a Size method, enabling use beyond widgets.
+// Layouts operate on a ui.Context to manage child origins and sizes; if the context or the laid-out
+// object implements Marginer or Padder, the strategy will respect margin and padding values.
+// This decouples spatial arrangement from specific widget implementations, allowing reusable flow/grid patterns.
 package layout
 
-import (
-	ui "github.com/itohio/tinygui"
-)
+import ui "github.com/itohio/tinygui"
 
 // Strategy adjusts a drawing context between child render calls.
-type Strategy func(ctx ui.Context, w ui.Widget) bool
+type Strategy func(ctx ui.Context, w ui.Sizer) bool
 
 // HList arranges widgets horizontally with padding p between entries.
 func HList(p int16) Strategy {
-	return func(ctx ui.Context, w ui.Widget) bool {
+	return func(ctx ui.Context, w ui.Sizer) bool {
 		wW, _ := w.Size()
 		x, y := ctx.Pos()
 		x += int16(wW) + p
@@ -19,7 +23,7 @@ func HList(p int16) Strategy {
 
 // VList arranges widgets vertically with padding p between entries.
 func VList(p int16) Strategy {
-	return func(ctx ui.Context, w ui.Widget) bool {
+	return func(ctx ui.Context, w ui.Sizer) bool {
 		_, wH := w.Size()
 		x, y := ctx.Pos()
 		y += int16(wH) + p
@@ -35,7 +39,7 @@ func Grid(px, py int16) Strategy {
 		initialized bool
 	)
 
-	return func(ctx ui.Context, w ui.Widget) bool {
+	return func(ctx ui.Context, w ui.Sizer) bool {
 		if !initialized {
 			x, _ := ctx.Pos()
 			startX = x
@@ -72,7 +76,7 @@ func HFlow(spacing int16, maxWidth uint16) Strategy {
 		ready     bool
 	)
 
-	return func(ctx ui.Context, w ui.Widget) bool {
+	return func(ctx ui.Context, w ui.Sizer) bool {
 		if !ready {
 			x, _ := ctx.Pos()
 			startX = x
@@ -113,7 +117,7 @@ func VFlow(spacing int16, maxHeight uint16) Strategy {
 		ready       bool
 	)
 
-	return func(ctx ui.Context, w ui.Widget) bool {
+	return func(ctx ui.Context, w ui.Sizer) bool {
 		if !ready {
 			_, y := ctx.Pos()
 			startY = y

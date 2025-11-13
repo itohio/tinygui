@@ -30,10 +30,23 @@ const (
 	USER UserCommand = 64
 )
 
+type Sizer interface {
+	Size() (width, height uint16)
+}
+
+type Padder interface {
+	Padding() (left, top, right, bottom int8)
+}
+
+type Marginer interface {
+	Margins() (left, top, right, bottom int8)
+}
+
 // Widget describes the minimal contract every drawable component must fulfill.
 // Implementations render themselves using the provided Context and may opt into
 // additional behaviours such as selection or scrolling via separate interfaces.
 type Widget interface {
+	Sizer
 	// Parent returns the parent widget of the widget.
 	Parent() Widget
 	SetParent(Widget)
@@ -43,7 +56,6 @@ type Widget interface {
 	// Interact returns true if the interaction was handled.
 	Interact(c UserCommand) bool
 	// Size returns Width and Height of the widget
-	Size() (W uint16, H uint16)
 	SetSelected(s bool)
 	Selected() bool
 }

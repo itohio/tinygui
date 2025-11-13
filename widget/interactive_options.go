@@ -8,11 +8,9 @@ import (
 
 // InteractiveOption configures interactive widgets (labels and gauges).
 type InteractiveOption[T Number] struct {
-	applyLabel  func(*InteractiveLabel[T])
-	applyHGauge func(*HorizontalInteractiveGauge[T])
-	applyVGauge func(*VerticalInteractiveGauge[T])
-	applyHMulti func(*HorizontalInteractiveMultiGauge[T])
-	applyVMulti func(*VerticalInteractiveMultiGauge[T])
+	applyLabel func(*InteractiveLabel[T])
+	applyGauge func(*InteractiveGauge[T])
+	applyMulti func(*InteractiveMultiGauge[T])
 }
 
 func (o InteractiveOption[T]) applyToLabel(target *InteractiveLabel[T]) {
@@ -21,27 +19,15 @@ func (o InteractiveOption[T]) applyToLabel(target *InteractiveLabel[T]) {
 	}
 }
 
-func (o InteractiveOption[T]) applyToHorizontalGauge(target *HorizontalInteractiveGauge[T]) {
-	if o.applyHGauge != nil {
-		o.applyHGauge(target)
+func (o InteractiveOption[T]) applyToGauge(target *InteractiveGauge[T]) {
+	if o.applyGauge != nil {
+		o.applyGauge(target)
 	}
 }
 
-func (o InteractiveOption[T]) applyToVerticalGauge(target *VerticalInteractiveGauge[T]) {
-	if o.applyVGauge != nil {
-		o.applyVGauge(target)
-	}
-}
-
-func (o InteractiveOption[T]) applyToHorizontalMultiGauge(target *HorizontalInteractiveMultiGauge[T]) {
-	if o.applyHMulti != nil {
-		o.applyHMulti(target)
-	}
-}
-
-func (o InteractiveOption[T]) applyToVerticalMultiGauge(target *VerticalInteractiveMultiGauge[T]) {
-	if o.applyVMulti != nil {
-		o.applyVMulti(target)
+func (o InteractiveOption[T]) applyToMulti(target *InteractiveMultiGauge[T]) {
+	if o.applyMulti != nil {
+		o.applyMulti(target)
 	}
 }
 
@@ -51,10 +37,7 @@ func WithValue[T Number](value *T) InteractiveOption[T] {
 		applyLabel: func(l *InteractiveLabel[T]) {
 			l.setExternal(value)
 		},
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
-			g.setExternal(value)
-		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.setExternal(value)
 		},
 	}
@@ -63,10 +46,7 @@ func WithValue[T Number](value *T) InteractiveOption[T] {
 // WithValues wires a slice pointer used by multi-value gauges.
 func WithValues[T Number](values *[]T) InteractiveOption[T] {
 	return InteractiveOption[T]{
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.setValues(values)
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.setValues(values)
 		},
 	}
@@ -82,28 +62,14 @@ func WithRange[T Number](min, max T) InteractiveOption[T] {
 				l.min, l.max = l.max, l.min
 			}
 		},
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.min = min
 			g.max = max
 			if g.min > g.max {
 				g.min, g.max = g.max, g.min
 			}
 		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
-			g.min = min
-			g.max = max
-			if g.min > g.max {
-				g.min, g.max = g.max, g.min
-			}
-		},
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.min = min
-			g.max = max
-			if g.min > g.max {
-				g.min, g.max = g.max, g.min
-			}
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.min = min
 			g.max = max
 			if g.min > g.max {
@@ -120,19 +86,11 @@ func WithSteps[T Number](small, large T) InteractiveOption[T] {
 			l.stepSmall = small
 			l.stepLarge = large
 		},
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.stepSmall = small
 			g.stepLarge = large
 		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
-			g.stepSmall = small
-			g.stepLarge = large
-		},
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.stepSmall = small
-			g.stepLarge = large
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.stepSmall = small
 			g.stepLarge = large
 		},
@@ -154,10 +112,7 @@ func WithCommit[T Number](fn func(T)) InteractiveOption[T] {
 		applyLabel: func(l *InteractiveLabel[T]) {
 			l.onCommit = fn
 		},
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
-			g.onCommit = fn
-		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.onCommit = fn
 		},
 	}
@@ -166,10 +121,7 @@ func WithCommit[T Number](fn func(T)) InteractiveOption[T] {
 // WithMultiCommit registers a commit callback for multi-value gauges.
 func WithMultiCommit[T Number](fn func([]T)) InteractiveOption[T] {
 	return InteractiveOption[T]{
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.onCommit = fn
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.onCommit = fn
 		},
 	}
@@ -181,16 +133,10 @@ func WithDisabled[T Number]() InteractiveOption[T] {
 		applyLabel: func(l *InteractiveLabel[T]) {
 			l.enabled = false
 		},
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.enabled = false
 		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
-			g.enabled = false
-		},
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.enabled = false
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.enabled = false
 		},
 	}
@@ -217,16 +163,10 @@ func WithTextColor[T Number](c color.RGBA) InteractiveOption[T] {
 // WithForeground sets gauge foreground colour.
 func WithForeground[T Number](c color.RGBA) InteractiveOption[T] {
 	return InteractiveOption[T]{
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.Foreground = c
 		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
-			g.Foreground = c
-		},
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.Foreground = c
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.Foreground = c
 		},
 	}
@@ -235,16 +175,10 @@ func WithForeground[T Number](c color.RGBA) InteractiveOption[T] {
 // WithBackground sets gauge background colour.
 func WithBackground[T Number](c color.RGBA) InteractiveOption[T] {
 	return InteractiveOption[T]{
-		applyHGauge: func(g *HorizontalInteractiveGauge[T]) {
+		applyGauge: func(g *InteractiveGauge[T]) {
 			g.Background = c
 		},
-		applyVGauge: func(g *VerticalInteractiveGauge[T]) {
-			g.Background = c
-		},
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.Background = c
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.Background = c
 		},
 	}
@@ -253,10 +187,7 @@ func WithBackground[T Number](c color.RGBA) InteractiveOption[T] {
 // WithSegmentColors sets per-segment colours for multi-value gauges.
 func WithSegmentColors[T Number](colors []color.RGBA) InteractiveOption[T] {
 	return InteractiveOption[T]{
-		applyHMulti: func(g *HorizontalInteractiveMultiGauge[T]) {
-			g.Colors = colors
-		},
-		applyVMulti: func(g *VerticalInteractiveMultiGauge[T]) {
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
 			g.Colors = colors
 		},
 	}

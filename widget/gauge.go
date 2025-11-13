@@ -6,8 +6,8 @@ import (
 	ui "github.com/itohio/tinygui"
 )
 
-// HorizontalGauge renders a horizontal progress indicator.
-type HorizontalGauge[T Number] struct {
+// Gauge renders a progress indicator whose orientation is inferred from its geometry.
+type Gauge[T Number] struct {
 	ui.WidgetBase
 	Value      *T
 	Min        T
@@ -16,22 +16,12 @@ type HorizontalGauge[T Number] struct {
 	Background color.RGBA
 }
 
-// VerticalGauge renders a vertical progress indicator.
-type VerticalGauge[T Number] struct {
-	ui.WidgetBase
-	Value      *T
-	Min        T
-	Max        T
-	Foreground color.RGBA
-	Background color.RGBA
-}
-
-// NewHorizontalGauge constructs a horizontal gauge.
-func NewHorizontalGauge[T Number](width, height uint16, value *T, min, max T, fg, bg color.RGBA) *HorizontalGauge[T] {
+// NewGauge constructs a gauge with the provided geometry and colours.
+func NewGauge[T Number](width, height uint16, value *T, min, max T, fg, bg color.RGBA) *Gauge[T] {
 	if min > max {
 		min, max = max, min
 	}
-	return &HorizontalGauge[T]{
+	return &Gauge[T]{
 		WidgetBase: ui.NewWidgetBase(width, height),
 		Value:      value,
 		Min:        min,
@@ -41,25 +31,37 @@ func NewHorizontalGauge[T Number](width, height uint16, value *T, min, max T, fg
 	}
 }
 
-// NewVerticalGauge constructs a vertical gauge.
-func NewVerticalGauge[T Number](width, height uint16, value *T, min, max T, fg, bg color.RGBA) *VerticalGauge[T] {
-	if min > max {
-		min, max = max, min
-	}
-	return &VerticalGauge[T]{
-		WidgetBase: ui.NewWidgetBase(width, height),
-		Value:      value,
-		Min:        min,
-		Max:        max,
-		Foreground: fg,
-		Background: bg,
-	}
+// HorizontalGauge is kept for backwards compatibility and aliases Gauge.
+type HorizontalGauge[T Number] = Gauge[T]
+
+// VerticalGauge is kept for backwards compatibility and aliases Gauge.
+type VerticalGauge[T Number] = Gauge[T]
+
+// NewHorizontalGauge constructs a gauge using horizontal defaults.
+func NewHorizontalGauge[T Number](width, height uint16, value *T, min, max T, fg, bg color.RGBA) *Gauge[T] {
+	return NewGauge(width, height, value, min, max, fg, bg)
 }
 
-// Draw renders the horizontal gauge based on the current value.
-func (g *HorizontalGauge[T]) Draw(ctx ui.Context) {
+// NewVerticalGauge constructs a gauge using vertical defaults.
+func NewVerticalGauge[T Number](width, height uint16, value *T, min, max T, fg, bg color.RGBA) *Gauge[T] {
+	return NewGauge(width, height, value, min, max, fg, bg)
+}
+
+// Draw renders the gauge using horizontal or vertical form based on widget dimensions.
+func (g *Gauge[T]) Draw(ctx ui.Context) {
+	if g == nil || g.Value == nil {
+		return
+	}
+	if g.Height == 0 || g.Width >= g.Height {
+		g.drawHorizontal(ctx)
+		return
+	}
+	g.drawVertical(ctx)
+}
+
+func (g *Gauge[T]) drawHorizontal(ctx ui.Context) {
 	d := ctx.D()
-	if d == nil || g.Value == nil {
+	if d == nil {
 		return
 	}
 	val := clamp(g.Min, g.Max, *g.Value)
@@ -86,10 +88,9 @@ func (g *HorizontalGauge[T]) Draw(ctx ui.Context) {
 	}
 }
 
-// Draw renders the vertical gauge based on the current value.
-func (g *VerticalGauge[T]) Draw(ctx ui.Context) {
+func (g *Gauge[T]) drawVertical(ctx ui.Context) {
 	d := ctx.D()
-	if d == nil || g.Value == nil {
+	if d == nil {
 		return
 	}
 	val := clamp(g.Min, g.Max, *g.Value)
@@ -116,25 +117,23 @@ func (g *VerticalGauge[T]) Draw(ctx ui.Context) {
 	}
 }
 
-func isZeroColor(c color.RGBA) bool {
-	return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0
-}
-
-// HorizontalMultiGauge draws a horizontal gauge with multiple values represented as colored segments.
-// T is the value type.
-type HorizontalMultiGauge[T Number] struct {
+// MultiGauge renders a gauge with multiple values represented as coloured segments.
+type MultiGauge[T Number] struct {
 	ui.WidgetBase
-	Values     *[]T         // slice of values, each representing a segment
-	Min        T            // minimum value for scale
-	Max        T            // maximum value for scale
-	Colors     []color.RGBA // segment colors, fallback to Foreground if not enough provided
+	Values     *[]T
+	Min        T
+	Max        T
+	Colors     []color.RGBA
 	Background color.RGBA
 	Foreground color.RGBA
 }
 
-// NewHorizontalMultiGauge creates a horizontal gauge for multiple values.
-func NewHorizontalMultiGauge[T Number](width, height uint16, min, max T, values *[]T, colors []color.RGBA, background, foreground color.RGBA) *HorizontalMultiGauge[T] {
-	return &HorizontalMultiGauge[T]{
+// NewMultiGauge constructs a multivalue gauge.
+func NewMultiGauge[T Number](width, height uint16, min, max T, values *[]T, colors []color.RGBA, background, foreground color.RGBA) *MultiGauge[T] {
+	if min > max {
+		min, max = max, min
+	}
+	return &MultiGauge[T]{
 		WidgetBase: ui.NewWidgetBase(width, height),
 		Values:     values,
 		Min:        min,
@@ -145,10 +144,35 @@ func NewHorizontalMultiGauge[T Number](width, height uint16, min, max T, values 
 	}
 }
 
-// Draw renders the horizontal multivalue gauge.
-func (g *HorizontalMultiGauge[T]) Draw(ctx ui.Context) {
+// HorizontalMultiGauge and VerticalMultiGauge are retained as aliases for compatibility.
+type HorizontalMultiGauge[T Number] = MultiGauge[T]
+type VerticalMultiGauge[T Number] = MultiGauge[T]
+
+// NewHorizontalMultiGauge constructs a multivalue gauge sized for horizontal layouts.
+func NewHorizontalMultiGauge[T Number](width, height uint16, min, max T, values *[]T, colors []color.RGBA, background, foreground color.RGBA) *MultiGauge[T] {
+	return NewMultiGauge(width, height, min, max, values, colors, background, foreground)
+}
+
+// NewVerticalMultiGauge constructs a multivalue gauge sized for vertical layouts.
+func NewVerticalMultiGauge[T Number](width, height uint16, min, max T, values *[]T, colors []color.RGBA, background, foreground color.RGBA) *MultiGauge[T] {
+	return NewMultiGauge(width, height, min, max, values, colors, background, foreground)
+}
+
+// Draw renders the multivalue gauge based on orientation.
+func (g *MultiGauge[T]) Draw(ctx ui.Context) {
+	if g == nil || g.Values == nil || *g.Values == nil {
+		return
+	}
+	if g.Height == 0 || g.Width >= g.Height {
+		g.drawHorizontal(ctx)
+		return
+	}
+	g.drawVertical(ctx)
+}
+
+func (g *MultiGauge[T]) drawHorizontal(ctx ui.Context) {
 	d := ctx.D()
-	if d == nil || g.Values == nil || *g.Values == nil {
+	if d == nil {
 		return
 	}
 	x, y := ctx.DisplayPos()
@@ -191,35 +215,9 @@ func (g *HorizontalMultiGauge[T]) Draw(ctx ui.Context) {
 	}
 }
 
-// VerticalMultiGauge draws a vertical gauge with multiple values represented as colored segments.
-// T is the value type.
-type VerticalMultiGauge[T Number] struct {
-	ui.WidgetBase
-	Values     *[]T
-	Min        T
-	Max        T
-	Colors     []color.RGBA
-	Background color.RGBA
-	Foreground color.RGBA
-}
-
-// NewVerticalMultiGauge creates a vertical gauge for multiple values.
-func NewVerticalMultiGauge[T Number](width, height uint16, min, max T, values *[]T, colors []color.RGBA, background, foreground color.RGBA) *VerticalMultiGauge[T] {
-	return &VerticalMultiGauge[T]{
-		WidgetBase: ui.NewWidgetBase(width, height),
-		Values:     values,
-		Min:        min,
-		Max:        max,
-		Colors:     colors,
-		Background: background,
-		Foreground: foreground,
-	}
-}
-
-// Draw renders the vertical multivalue gauge.
-func (g *VerticalMultiGauge[T]) Draw(ctx ui.Context) {
+func (g *MultiGauge[T]) drawVertical(ctx ui.Context) {
 	d := ctx.D()
-	if d == nil || g.Values == nil || *g.Values == nil {
+	if d == nil {
 		return
 	}
 	x, y := ctx.DisplayPos()
@@ -238,9 +236,9 @@ func (g *VerticalMultiGauge[T]) Draw(ctx ui.Context) {
 
 	vals := *g.Values
 	cumulative := int16(0)
-	for i := len(vals) - 1; i >= 0; i-- { // Draw from bottom up
-		v := clamp(g.Min, g.Max, vals[i])
-		segHeight := position(g.Min, g.Max, v, height-2)
+	for i, v := range vals {
+		segVal := clamp(g.Min, g.Max, v)
+		segHeight := position(g.Min, g.Max, segVal, height-2)
 		if segHeight <= 0 {
 			continue
 		}
@@ -260,4 +258,25 @@ func (g *VerticalMultiGauge[T]) Draw(ctx ui.Context) {
 			break
 		}
 	}
+}
+
+func isZeroColor(c color.RGBA) bool {
+	return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0
+}
+
+func position[T Number](min, max, value T, span int16) int16 {
+	if span <= 0 {
+		return 0
+	}
+	if max <= min {
+		return span
+	}
+	fraction := (float32(value) - float32(min)) / (float32(max) - float32(min))
+	if fraction < 0 {
+		fraction = 0
+	}
+	if fraction > 1 {
+		fraction = 1
+	}
+	return int16(fraction * float32(span))
 }

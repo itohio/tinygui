@@ -24,6 +24,13 @@ type RectangleDisplayer interface {
 	FillScreen(c color.RGBA)
 }
 
+type Displayer interface {
+	BitmapDisplayer
+	LineDisplayer
+	RectangleDisplayer
+	drivers.Displayer
+}
+
 // HLine draws a horizontal line one pixel thick on any displayer.
 func HLine(d drivers.Displayer, x, y, w int16, c color.RGBA) {
 	for w > 0 {

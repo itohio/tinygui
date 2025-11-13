@@ -34,6 +34,7 @@ TinyGUI is a minimal widget toolkit for TinyGo targets that emphasizes determini
 - Padding/margin offsets adjust the child context before layouts run so nested containers can respect spacing without hand-rolled coordinate tweaks.
 - `Scroll` composes `Base[ui.Widget]` with scroll offsets. It only draws visible children, leaving parent contexts untouched while notifying observers of offset changes.
 - `ScrollChange` / `ScrollObserver` let higher-level widgets (e.g., navigable lists) synchronise scrolling with focus changes.
+- **Planned:** `ScrollChoice` will build on `Scroll` and reuse `widget.InteractiveSelector[ui.Widget]` so selection and viewport adjustments stay in sync. The constructor mirrors `Scroll` (layout + children), while options expose index binding, change callbacks, and auto-scrolling policies. Selection commands (`UP`, `DOWN`, `NEXT`, `PREV`, wraparound) are delegated to the shared selector, ensuring behavioural parity with widget-level choices but at container scope.
 - Tab/pager components will layer on top by composing `Base` and wiring into the navigator.
 
 **Layout package (`layout/`)**
@@ -58,7 +59,12 @@ TinyGUI is a minimal widget toolkit for TinyGo targets that emphasizes determini
 - Interactive widgets (e.g., toggle/selector) encapsulate their behaviour by accepting getter/setter callbacks, enabling focus-driven state changes without direct hardware coupling.
 - `InteractiveLabel` embeds a `Label`, annotates text with ▲/▼ while selected, and edits pointer-backed values using opt-in options (`WithValue`, `WithRange`, `WithSteps`, etc.) without extra allocation.
 - `InteractiveIcon` embeds `Icon`, cycling through preloaded PNGs on directional commands while optionally mirroring an external index for deterministic state.
-- `InteractiveChoice` embeds a `Label`, rotating through a static string table with optional external index wiring for deterministic selection.
+- `Bitmap16` / `Bitmap8` reuse a generic `BitmapBase[T]` to stream raw pixel buffers (RGB565 or 8-bit) via the accelerated bitmap interfaces without extra allocations.
+- `InteractiveLabelChoice` renders string options through a `Label` while delegating navigation to the shared selector, allowing index binding and change callbacks.
+- `InteractiveWidgetChoice[T]` accepts arbitrary widgets, forwarding selection and drawing the active child while exposing the generic selector for commit/cancel coordination.
+- `ScrollChoice` exposes scrollable collections at container scope, delegating index changes to a shared `InteractiveSelector` and auto-scrolling to keep the focused child visible.
+- `InteractiveIconChoice` renders image identifiers via `Icon`, reusing the same selector plumbing to keep interaction logic opt-in.
+- `MultilineLabel` / `Log` share a configurable base (`MultilineOrder`, font, colour) while interactive variants add scrollable history views.
 - `HorizontalInteractiveGauge` / `VerticalInteractiveGauge` compose the gauge displays for single values, while multi-value variants wrap `HorizontalMultiGauge` / `VerticalMultiGauge` to provide segment navigation (ENTER to advance, BACK/ESC to revert) and option-driven configuration.
 - Phase 2 adds new composites:
   - `Toggle` and future selectors implement `Selectable`/`EnableState` to opt into navigation.
@@ -122,4 +128,5 @@ TinyGUI is a minimal widget toolkit for TinyGo targets that emphasizes determini
 This document captures the current structure to inform future planning (`PLAN.md`) and ensure subsequent enhancements remain consistent with the library’s guiding principles.
 
 - Option helpers (`InteractiveOption[T]`) provide a shared configuration surface (`WithValue`, `WithRange`, `WithSteps`, `WithForeground`, etc.), keeping constructors minimal and aligned with the opt-in capability philosophy.
+- Scroll-aware choice containers reuse the shared selector plumbing to reduce duplication between list widgets and higher-level navigable containers, keeping focus rules consistent across the stack.
 
