@@ -53,6 +53,10 @@ func From565(p uint16) color.RGBA {
 	return color.RGBA{R: r<<3 | r>>2, G: g<<2 | g>>4, B: b<<3 | b>>2, A: 255}
 }
 
+// Clip reports the band the buffer holds (ui.Clipper), so widgets can skip
+// drawing outside it.
+func (f *RGB565) Clip() (x, y, w, h int16) { return 0, f.Y0, f.W, f.H }
+
 // Size reports the full screen, not the band.
 func (f *RGB565) Size() (int16, int16) { return f.W, f.ScreenH }
 

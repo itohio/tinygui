@@ -25,6 +25,14 @@ type RectangleDisplayer interface {
 	FillScreen(c color.RGBA)
 }
 
+// Clipper is implemented by displays that hold only part of the screen at a
+// time, such as one band of a framebuffer drawn band by band. Widgets that
+// draw many primitives can skip the ones entirely outside Clip; drawing
+// outside it is still safe, only wasted work.
+type Clipper interface {
+	Clip() (x, y, w, h int16)
+}
+
 type Displayer interface {
 	BitmapDisplayer
 	LineDisplayer

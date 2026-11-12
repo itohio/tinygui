@@ -90,3 +90,33 @@ func TestCellGridSquareNoGap(t *testing.T) {
 	require.Equal(t, lit, c.at(2, 2))
 	require.Equal(t, dim, c.at(3, 0)) // second cell starts at x = 3, no gap
 }
+
+// clippedCanvas reports a clip rectangle and counts fill calls.
+type clippedCanvas struct {
+	*canvas
+	cy, ch int16
+	fills  int
+}
+
+func (c *clippedCanvas) Clip() (int16, int16, int16, int16) { return 0, c.cy, c.w, c.ch }
+func (c *clippedCanvas) FillRectangle(x, y, w, h int16, col color.RGBA) error {
+	c.fills++
+	return c.canvas.FillRectangle(x, y, w, h, col)
+}
+
+// With a clipping display (e.g. one band of a framebuffer) the grid only
+// draws cell rows that overlap the clip rectangle, and those correctly.
+func TestCellGridSkipsRowsOutsideClip(t *testing.T) {
+	cells := make([]uint8, 4*10)
+	for i := range cells {
+		cells[i] = 1
+	}
+	g := NewCellGrid(4, 10, 5, 0, CellSquare, cells, []color.RGBA{dim, lit}, off)
+	c := &clippedCanvas{canvas: newCanvas(20, 50), cy: 12, ch: 10} // rows 12..21 → cell rows 2..4
+	ctx := ui.NewContext(c, 20, 50, 0, 0)
+	g.Draw(&ctx)
+	require.Equal(t, 3*4, c.fills, "3 cell rows × 4 cells")
+	require.Equal(t, lit, c.at(0, 12))
+	require.Equal(t, lit, c.at(19, 21))
+	require.Equal(t, color.RGBA{}, c.at(0, 30), "rows outside the clip are not drawn")
+}

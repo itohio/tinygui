@@ -64,9 +64,19 @@ func (g *CellGrid) Draw(ctx ui.Context) {
 		fillRect(d, x0, y0, int16(g.Width), int16(g.Height), g.Off)
 	}
 	round := g.Shape == CellRound && dot >= 3
-	i := 0
-	y := y0
-	for range g.Rows {
+	// rows to draw: all, or only those overlapping the display's clip
+	r0, r1 := 0, g.Rows
+	if c, ok := d.(ui.Clipper); ok {
+		_, cy, _, ch := c.Clip()
+		r0 = max(0, int((cy-y0)/p))
+		r1 = min(g.Rows, int((cy+ch-y0+p-1)/p))
+		if cy+ch <= y0 {
+			r1 = 0
+		}
+	}
+	i := r0 * g.Cols
+	y := y0 + int16(r0)*p
+	for range max(0, r1-r0) {
 		x := x0
 		for range g.Cols {
 			c := g.Off
