@@ -123,7 +123,7 @@ func rand32() uint32 {
 }
 
 func (a *App) pageLife() *page {
-	l := a.life
+	l := newLife()
 	run := widget.NewToggle(44, 12, fontBody, colFG, "RUN", "PAUSE", colGood, colTrack,
 		func() bool { return l.running }, func(v bool) { l.running = v })
 	pat := widget.NewInteractiveLabelChoice(84, 11, lifePatterns,
@@ -135,10 +135,21 @@ func (a *App) pageLife() *page {
 	// The width limit is explicit: with 0 HFlow uses the context width, which
 	// does not subtract the page padding, so the first control would land
 	// beside the grid, off screen (findings F-33).
-	return a.newPageWith("Life", layout.HFlow(4, lifeCols*lifePitch),
+	p := a.newPageWith("Life", layout.HFlow(4, lifeCols*lifePitch),
 		still(l.grid),
 		newField("", 0, 60, run),
 		newField("Pattern", 44, 150, pat),
 		still(gen),
 	)
+	p.demo = l
+	return p
 }
+
+func (l *life) tick() {
+	if l.running {
+		l.step()
+	}
+}
+
+func (l *life) fullGrid() *widget.CellGrid { return nil }
+func (l *life) fullPress(Button) bool      { return false }

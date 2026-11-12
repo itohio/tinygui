@@ -51,6 +51,7 @@ type water struct {
 	fullIdx int
 	txt     textBuf
 	txt2    textBuf
+	log     func(string)
 }
 
 func newWater() *water {
@@ -142,10 +143,13 @@ func (w *water) step() {
 
 var waterFullNames = []string{"5 px", "4 px"}
 
-// fullView returns the full-screen grid with its rows pointed at the part of
+// fullGrid returns the full-screen grid with its rows pointed at the part of
 // the 64 rows where the water collects: the bottom when gravity pulls down,
 // the top when up, the middle when sideways. Call from Update, not Draw.
-func (w *water) fullView() *widget.CellGrid {
+func (w *water) fullGrid() *widget.CellGrid {
+	if !w.fullOn {
+		return nil
+	}
 	g := w.full[w.fullIdx]
 	off := (waterN - g.Rows) / 2
 	switch waterGrav[w.dir][1] {
@@ -207,7 +211,8 @@ func (w *water) shadeCells() {
 }
 
 func (a *App) pageWater() *page {
-	w := a.water
+	w := newWater()
+	w.log = a.log
 	grav := widget.NewInteractiveLabelChoice(52, 11, waterDirs,
 		widget.WithLabelChoiceIndex(&w.dir), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG),
 		widget.WithLabelChoiceChange(func(i int, s string) { a.log("gravity " + s) }))
@@ -221,7 +226,7 @@ func (a *App) pageWater() *page {
 		widget.WithLabelChoiceIndex(&w.fullIdx), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG))
 	const side = waterN * waterPitch // 192
 	// explicit height: findings F-33
-	return a.newPageWith("Water", layout.VFlow(4, side),
+	p := a.newPageWith("Water", layout.VFlow(4, side),
 		still(w.grid),
 		newField("Gravity", 42, 104, grav),
 		newField("Pour", 42, 104, pour),
@@ -231,4 +236,34 @@ func (a *App) pageWater() *page {
 		still(a.text(104, func() string { return w.txt.reset().str("cells ").int(w.count).String() }, colMuted)),
 		still(a.text(104, func() string { return w.txt2.reset().str("step ").int(int(w.stepUS)).str(" us").String() }, colMuted)),
 	)
+	p.demo = w
+	return p
+}
+
+func (w *water) tick() {
+	for range waterStepsPerFrame {
+		w.step()
+	}
+}
+
+// fullPress: UP/DOWN rotate gravity, A pours, B back to the page, C leaves
+// and changes page (returns false so the App carries on).
+func (w *water) fullPress(b Button) bool {
+	switch b {
+	case BtnUp, BtnDown:
+		if b == BtnUp {
+			w.turn(1)
+		} else {
+			w.turn(-1)
+		}
+		w.log("gravity " + waterDirs[w.dir])
+	case BtnA:
+		w.pour = !w.pour
+	case BtnB:
+		w.fullOn = false
+	case BtnC:
+		w.fullOn = false
+		return false
+	}
+	return true
 }
