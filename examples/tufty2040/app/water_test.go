@@ -2,10 +2,10 @@ package app
 
 import "testing"
 
-func (w *water) cells() int {
+func (w *water) wet() int {
 	n := 0
 	for _, s := range w.state[:] {
-		if s&waterBit != 0 {
+		if s&liquidBit != 0 {
 			n++
 		}
 	}
@@ -16,7 +16,7 @@ func (w *water) cells() int {
 func (w *water) heights() (h [waterN]int) {
 	for x := range waterN {
 		for y := range waterN {
-			if w.state[y*waterN+x]&waterBit != 0 {
+			if w.state[y*waterN+x]&liquidBit != 0 {
 				h[x]++
 			}
 		}
@@ -32,14 +32,14 @@ func TestWaterLevelsOutLikeALiquid(t *testing.T) {
 	clear(w.state[:])
 	for y := 16; y < waterN; y++ {
 		for x := 28; x < 36; x++ {
-			w.state[y*waterN+x] = waterBit
+			w.state[y*waterN+x] = liquidBit
 		}
 	}
-	n := w.cells() // 8 × 48 = 384 → 6 rows when level
+	n := w.wet()   // 8 × 48 = 384 → 6 rows when level
 	for range 90 { // 2 s
 		w.step()
 	}
-	if got := w.cells(); got != n {
+	if got := w.wet(); got != n {
 		t.Fatalf("water not conserved: %d cells, want %d", got, n)
 	}
 	h := w.heights()
@@ -65,19 +65,19 @@ func TestWaterLevelsOutLikeALiquid(t *testing.T) {
 // second). Moving a cell one place a step, it took 392 steps.
 func TestWaterFollowsGravityQuickly(t *testing.T) {
 	w := newWater() // bottom 40 % full
-	n := w.cells()
+	n := w.wet()
 	w.dir = 2 // left
 	for range 135 {
 		w.step()
 	}
-	if got := w.cells(); got != n {
+	if got := w.wet(); got != n {
 		t.Fatalf("water not conserved: %d cells, want %d", got, n)
 	}
 	lo, hi := 99, 0
 	for y := range waterN {
 		width := 0
 		for x := range waterN {
-			if w.state[y*waterN+x]&waterBit != 0 {
+			if w.state[y*waterN+x]&liquidBit != 0 {
 				width++
 			}
 		}
@@ -96,7 +96,7 @@ func TestWaterReactsToEveryGravityDirection(t *testing.T) {
 		var sx, sy, n float64
 		for y := range waterN {
 			for x := range waterN {
-				if w.state[y*waterN+x]&waterBit != 0 {
+				if w.state[y*waterN+x]&liquidBit != 0 {
 					sx, sy, n = sx+float64(x), sy+float64(y), n+1
 				}
 			}
@@ -115,9 +115,9 @@ func TestWaterReactsToEveryGravityDirection(t *testing.T) {
 			w.step()
 		}
 		x1, y1 := com(w)
-		g := waterGrav[d]
+		g := gravityVec[d]
 		if moved := (x1-x0)*float64(g[0]) + (y1-y0)*float64(g[1]); moved < 8 {
-			t.Errorf("gravity %s: the water moved only %.1f cells towards it in 1 s", waterDirs[d], moved)
+			t.Errorf("gravity %s: the water moved only %.1f cells towards it in 1 s", gravityNames[d], moved)
 		}
 	}
 }
