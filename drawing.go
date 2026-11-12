@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"image/color"
 	"strings"
 
@@ -74,3 +75,29 @@ func DrawPng(d BitmapDisplayer, x0, y0 int16, pngImage string) error {
 	// w, h = d.Size()
 	return err
 }
+
+// DecodePng decodes pngImage into dst as a w×h RGB565 bitmap (row-major, the
+// format DrawRGBBitmap takes). Pixels outside w×h are dropped. Decoding
+// allocates the decoder's working state; decode once and keep dst.
+func DecodePng(dst []uint16, w, h int16, pngImage string) error {
+	if len(dst) < int(w)*int(h) {
+		return errShortBuffer
+	}
+	png.SetCallback(buffer[:], func(data []uint16, x, y, cw, ch, width, height int16) {
+		for row := int16(0); row < ch; row++ {
+			dy := y + row
+			if dy < 0 || dy >= h {
+				continue
+			}
+			for col := int16(0); col < cw; col++ {
+				if dx := x + col; dx >= 0 && dx < w {
+					dst[int(dy)*int(w)+int(dx)] = data[int(row)*int(cw)+int(col)]
+				}
+			}
+		}
+	})
+	_, err := png.Decode(strings.NewReader(pngImage))
+	return err
+}
+
+var errShortBuffer = errors.New("tinygui: bitmap buffer shorter than w*h")
