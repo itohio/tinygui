@@ -97,6 +97,8 @@ type App struct {
 	bitmapIdx              int
 	life                   *life
 	lifePage               *page
+	water                  *water
+	waterPage              *page
 	speedMS                int
 
 	curves     [4]float32
@@ -161,9 +163,11 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 	a.restartCurves()
 	a.life = newLife()
 	a.lifePage = a.pageLife()
+	a.water = newWater()
+	a.waterPage = a.pageWater()
 	a.pages = []*page{
 		a.pageDashboard(), a.pageGauges(), a.pageControls(), a.pagePictures(),
-		a.pageLayouts(), a.pageList(), a.pageLog(), a.lifePage,
+		a.pageLayouts(), a.pageList(), a.pageLog(), a.lifePage, a.waterPage,
 	}
 	names := make([]string, len(a.pages))
 	pageWidgets := make([]ui.Widget, len(a.pages))
@@ -241,6 +245,11 @@ func (a *App) Update(now time.Time) {
 	a.phase = (a.phase + 3) & 255
 	if a.pages[a.cur] == a.lifePage && a.life.running {
 		a.life.step()
+	}
+	if a.pages[a.cur] == a.waterPage {
+		for range waterStepsPerFrame {
+			a.water.step()
+		}
 	}
 	if a.cur == 3 { // only animate the plasma while it is visible
 		renderPlasma(a.plasma[:], plasmaW, plasmaH, a.phase)

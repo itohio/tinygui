@@ -123,7 +123,7 @@ func (a *App) pageGauges() *page {
 		widget.WithFont[int](fontBody), widget.WithTextColor[int](colFG),
 		widget.WithFormatter(func(v int) string { return a.txtSpeed.reset().int(v).str(" ms").String() }),
 		widget.WithCommit(func(v int) { a.restartCurves() }))
-	return a.newPage("Gauges",
+	return a.newPage("Gauge",
 		still(box(innerW, 84, layout.HList(8), curves, right)),
 		newField("Level", captionW, innerW, level),
 		newField("Mix (A=next)", captionW, innerW, mix),
@@ -194,7 +194,7 @@ func (a *App) pagePictures() *page {
 		box(100, plasmaH+12, layout.VList(1), a.caption(100, "Separator"), widget.NewSeparator(100, 9, colAccent),
 			widget.NewSeparator(100, 9, colMuted), widget.NewSeparator(100, 9, colGood)),
 	)
-	return a.newPage("Images",
+	return a.newPage("Image",
 		newField("InteractiveIcon", 100, innerW, icon),
 		newField("IconChoice", 100, innerW, iconChoice),
 		newField("WidgetChoice", 100, innerW, pick),
@@ -225,7 +225,7 @@ func (a *App) pageLayouts() *page {
 	panel := func(title string, inner ui.Widget) ui.Widget {
 		return box(half, 88, layout.VList(2), a.caption(half, title), inner)
 	}
-	return a.newPage("Layout",
+	return a.newPage("Flow",
 		still(box(innerW, 88, layout.HList(8),
 			panel("Grid(4,4)", box(half, 70, layout.Grid(4, 4), sw...)),
 			panel("HFlow(4)", box(half, 70, layout.HFlow(4, 0), hf...)),
