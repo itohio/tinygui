@@ -174,3 +174,28 @@ func TestDropdownClampsItsIndexAndNeedsOptions(t *testing.T) {
 	})
 	require.Nil(t, o2.Top())
 }
+
+// A list that fits neither below nor above the dropdown stays on screen
+// (verify B-F4: it opened above at y = -42).
+func TestDropdownListStaysOnScreen(t *testing.T) {
+	idx := 0
+	dd := widget.NewDropdown(60, style, []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, &idx, nil) // 92 px list
+	page := container.New[ui.Widget](200, 100, container.WithChildren[ui.Widget](dd))
+	o := container.NewOverlay(page)
+	rec := &fillRecorder{nopDisplay: nopDisplay{200, 100}}
+	mid := ui.NewContext(rec, 200, 100, 0, 50) // the dropdown at y 50, 12 tall
+	page.Draw(&mid)
+	require.True(t, dd.Open())
+	rec.fills = nil
+	at := ui.NewContext(rec, 200, 100, 0, 0)
+	o.Draw(&at)
+	found := false
+	for _, f := range rec.fills {
+		if f[2] == 60 && f[3] == 92 { // the list's background
+			found = true
+			require.GreaterOrEqual(t, f[1], int16(0))
+			require.LessOrEqual(t, f[1]+f[3], int16(100))
+		}
+	}
+	require.True(t, found, "list background drawn")
+}

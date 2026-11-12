@@ -63,7 +63,8 @@ func (d *Dropdown) Open() bool {
 	_, lh := d.list.Size()
 	if sz, ok := h.(ui.Sizer); ok {
 		if _, hh := sz.Size(); y+int16(lh) > int16(hh) {
-			y = d.y - int16(lh) // no room below: open upwards
+			// no room below: open upwards, kept on screen when it fits neither way
+			y = max(0, min(d.y-int16(lh), int16(hh)-int16(lh)))
 		}
 	}
 	return h.Open(&d.list, d.x, y)
