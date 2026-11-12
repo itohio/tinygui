@@ -167,21 +167,33 @@ func NewMultilineLabel(width, lineHeight uint16, maxLines int, opts ...Multiline
 	return &MultilineLabel{MultilineBase: NewMultilineBase(width, lineHeight, maxLines, opts...)}
 }
 
-// Log stores an append-only history capped at capacity.
+// Log stores an append-only history capped at capacity. Its line storage is
+// reserved when the capacity is set (setup): appending never allocates,
+// the oldest line is shifted out in place.
 type Log struct {
 	*MultilineBase
 	capacity int
 }
 
-// SetCapacity adjusts the number of entries retained in history (minimum maxLines).
+// SetCapacity adjusts the number of entries retained in history (minimum
+// maxLines) and reserves their storage.
 func (l *Log) SetCapacity(cap int) {
 	if cap < l.maxLines {
 		cap = l.maxLines
 	}
 	l.capacity = cap
 	if len(l.lines) > l.capacity {
-		excess := len(l.lines) - l.capacity
-		l.lines = append([]string(nil), l.lines[excess:]...)
+		l.lines = l.lines[len(l.lines)-l.capacity:]
+	}
+	l.reserve()
+}
+
+// reserve gives lines room for capacity entries.
+func (l *Log) reserve() {
+	if cap(l.lines) < l.capacity {
+		lines := make([]string, len(l.lines), l.capacity)
+		copy(lines, l.lines)
+		l.lines = lines
 	}
 }
 
@@ -194,18 +206,20 @@ func NewLog(width, lineHeight uint16, maxLines int, font tinyfont.Fonter, col co
 func NewLogWithOptions(width, lineHeight uint16, maxLines int, opts ...MultilineOption) *Log {
 	base := NewMultilineBase(width, lineHeight, maxLines, opts...)
 	log := &Log{MultilineBase: base, capacity: maxLines}
+	log.reserve()
 	return log
 }
 
-// Append adds a new log entry, keeping only the configured capacity.
+// Append adds a new log entry, keeping only the configured capacity; when
+// full, the oldest entry is shifted out in place (no allocation).
 func (l *Log) Append(line string) {
-	l.lines = append(l.lines, line)
-	if l.capacity > 0 && len(l.lines) > l.capacity {
-		excess := len(l.lines) - l.capacity
-		if excess > 0 {
-			l.lines = append([]string(nil), l.lines[excess:]...)
-		}
+	if l.capacity > 0 && len(l.lines) >= l.capacity {
+		n := copy(l.lines, l.lines[len(l.lines)-l.capacity+1:])
+		l.lines = l.lines[:n+1]
+		l.lines[n] = line
+		return
 	}
+	l.lines = append(l.lines, line)
 }
 
 // InteractiveMultiline allows scrolling through multiline content.
