@@ -96,6 +96,8 @@ type App struct {
 	accent                 int
 	pngIdx, pngChoiceIdx   int
 	bitmapIdx              int
+	menu                   *menu
+	picturesPage           *page
 	full                   *widget.CellGrid // a demo drawn full screen instead of the UI
 	fullCtx                ui.ContextImpl
 	speedMS                int
@@ -160,9 +162,12 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 		cmds:         make(chan command, 16),
 	}
 	a.restartCurves()
+	life := a.pageLife()
+	a.picturesPage = a.pagePictures()
 	a.pages = []*page{
-		a.pageDashboard(), a.pageGauges(), a.pageControls(), a.pagePictures(),
-		a.pageLayouts(), a.pageList(), a.pageLog(), a.pageLife(), a.pageWater(), a.pageFire(), a.pagePong(), a.pageBoids(),
+		a.pageDemos(life),
+		a.pageDashboard(), a.pageGauges(), a.pageControls(), a.picturesPage,
+		a.pageLayouts(), a.pageList(), a.pageLog(), life, a.pageWater(), a.pageFire(), a.pagePong(), a.pageBoids(),
 	}
 	names := make([]string, len(a.pages))
 	pageWidgets := make([]ui.Widget, len(a.pages))
@@ -247,7 +252,7 @@ func (a *App) Update(now time.Time) {
 		w, h := a.full.Size()
 		a.fullCtx = ui.NewContext(a.d, ScreenW, ScreenH, int16(ScreenW-int(w))/2, int16(ScreenH-int(h))/2)
 	}
-	if a.cur == 3 { // only animate the plasma while it is visible
+	if a.pages[a.cur] == a.picturesPage { // only animate the plasma while it is visible
 		renderPlasma(a.plasma[:], plasmaW, plasmaH, a.phase)
 	}
 	if !a.editing {
@@ -393,6 +398,10 @@ func (a *App) enter(p *page) {
 		return
 	}
 	cur := p.nav.Current()
+	if t, ok := cur.(interface{ activate() }); ok {
+		t.activate() // e.g. a demo tile: opens the demo full screen
+		return
+	}
 	if f, ok := cur.(*field); ok {
 		if _, isToggle := f.child.(*widget.Toggle); isToggle {
 			f.Interact(ui.ENTER) // toggles act immediately, no edit mode

@@ -24,9 +24,15 @@ func (a *App) newPage(name string, children ...ui.Widget) *page {
 }
 
 func (a *App) newPageWith(name string, l layout.Strategy, children ...ui.Widget) *page {
+	return a.newPageOpt(name, container.WithLayout[ui.Widget](l), children...)
+}
+
+// newPageOpt makes a page whose children are placed by lay (a cursor
+// strategy or an arranger).
+func (a *App) newPageOpt(name string, lay container.Option[ui.Widget], children ...ui.Widget) *page {
 	root := container.New[ui.Widget](pageW, bodyH,
 		container.WithPadding[ui.Widget](8, 6),
-		container.WithLayout[ui.Widget](l),
+		lay,
 		container.WithTimeout[ui.Widget](a.idleTimeout),
 		container.WithChildren[ui.Widget](children...),
 	)

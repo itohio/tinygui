@@ -16,12 +16,12 @@ type command struct {
 	long   bool
 }
 
-const helpText = "commands: up|down|a|b|c [long], user <ms>, page <n>, led <0-100>, bl <10-100>, saver [0|1], stats, dump, help"
+const helpText = "commands: up|down|a|b|c [long], user <ms>, page <n>, led <0-100>, bl <10-100>, saver [0|1], stats, tiles, dump, help"
 
 // Handlers returns the command table for ui.NewCommandStreamMux.
 func (a *App) Handlers() map[string]func([]byte) {
 	m := map[string]func([]byte){}
-	for _, name := range []string{"up", "down", "a", "b", "c", "user", "page", "led", "bl", "saver", "stats", "dump", "help"} {
+	for _, name := range []string{"up", "down", "a", "b", "c", "user", "page", "led", "bl", "saver", "stats", "tiles", "dump", "help"} {
 		m[name] = func(arg []byte) { a.Command(name, string(arg)) }
 	}
 	return m
@@ -76,6 +76,8 @@ func (a *App) exec(c command) {
 			" page " + itoa(a.cur) + " edit " + itoa(btoi(a.editing)))
 		a.log("heap_alloc " + itoa(int(ms.HeapAlloc)) + " heap_sys " + itoa(int(ms.HeapSys)) +
 			" mallocs " + itoa(int(ms.Mallocs)) + " gc " + itoa(int(ms.NumGC)))
+	case "tiles": // frame budget of each demo tile on the Demos page
+		a.menu.report(a.log)
 	case "help":
 		a.log(helpText)
 	}
