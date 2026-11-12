@@ -4,8 +4,9 @@
 # Owner rule: tinygui allocates nothing after setup (it must run with the GC disabled).
 
 animation/ease.go NewEaseInOut  # constructor (setup)
-container/base.go Base.drawArranged  # first draw only: sizes the child rectangles (growth guard, cap < len(Items))
-container/base.go Base.setVisibility  # first draw only: sizes the visibility slice (or when Items is replaced)
+container/base.go Base.drawArranged  # only if Items grew after New (New sizes the rectangles; growth guard)
+container/base.go Base.setVisibility  # only if Items was replaced after New (via resetVisibility)
+container/base.go Base.resetVisibility  # from New (setup), or when Items was replaced after New
 container/base.go New  # constructor (setup)
 container/base.go WithChildren  # option (setup)
 container/base.go WithLayout  # option (setup)
@@ -23,7 +24,7 @@ navigator.go NewNavigator  # constructor (setup)
 widget/bitmap.go NewBitmap16  # constructor (setup)
 widget/bitmap.go NewBitmap8  # constructor (setup)
 widget/bitmap.go NewBitmapBase  # constructor (setup)
-widget/cellgrid.go CellGrid.drawStrips  # first draw only: sizes the RGB565 scanlines and palette (growth guards)
+widget/cellgrid.go CellGrid.drawStrips  # only if Cols, Pitch or Palette grew after NewCellGrid (which sizes them; growth guards)
 widget/cellgrid.go NewCellGrid  # constructor (setup)
 widget/dialog.go NewDialog  # constructor (setup)
 widget/dropdown.go NewDropdown  # constructor (setup)

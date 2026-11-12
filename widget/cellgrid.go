@@ -40,7 +40,11 @@ type CellGrid struct {
 // NewCellGrid creates a grid of cols×rows cells drawn pitch pixels apart.
 // cells must hold cols*rows indices into palette.
 func NewCellGrid(cols, rows int, pitch, gap uint8, shape CellShape, cells []uint8, palette []color.RGBA, off color.RGBA) *CellGrid {
+	// the bitmap path's scanlines and palette sized here, so the first draw
+	// allocates nothing (drawStrips only resizes if Cols/Pitch/Palette grow)
 	return &CellGrid{
+		lines:      make([]uint16, 2*cols*int(pitch)),
+		pal:        make([]uint16, min(len(palette), 256)),
 		WidgetBase: ui.NewWidgetBase(uint16(cols)*uint16(pitch), uint16(rows)*uint16(pitch)),
 		Cols:       cols,
 		Rows:       rows,

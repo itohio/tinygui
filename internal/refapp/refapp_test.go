@@ -241,3 +241,44 @@ func TestCommandMuxDispatchesWithoutAllocating(t *testing.T) {
 		t.Errorf("command mux: %.0f allocations per 5 lines", n)
 	}
 }
+
+// A widget's first draw (a page shown for the first time) allocates
+// nothing: containers and grids size their buffers when built (owner: no
+// allocations after setup; first draws used to size them). 20 fresh copies
+// of each, built first, then each drawn once: fewer than one allocation per
+// first draw (exactly none on TinyGo).
+func TestFirstDrawDoesNotAllocate(t *testing.T) {
+	_, ctx := display()
+	cells := make([]uint8, 64)
+	makers := []struct {
+		name string
+		make func() ui.Widget
+	}{
+		{"Base(Wrap)", func() ui.Widget {
+			return container.New[ui.Widget](200, 40, container.WithArranger[ui.Widget](&layout.Wrap{Gap: 2}),
+				container.WithChildren[ui.Widget](widget.NewSeparator(60, 3, fg), widget.NewSeparator(60, 3, fg)))
+		}},
+		{"Base(HFlow)", func() ui.Widget {
+			return container.New[ui.Widget](200, 40, container.WithLayout[ui.Widget](layout.HFlow(2, 200)),
+				container.WithChildren[ui.Widget](widget.NewSeparator(60, 3, fg), widget.NewSeparator(60, 3, fg)))
+		}},
+		{"CellGrid", func() ui.Widget {
+			return widget.NewCellGrid(8, 8, 4, 1, widget.CellRound, cells, []color.RGBA{fg, bg}, bg)
+		}},
+	}
+	const copies = 20
+	for _, mk := range makers {
+		ws := make([]ui.Widget, copies)
+		for i := range ws {
+			ws[i] = mk.make()
+		}
+		m0 := mallocs()
+		for _, w := range ws {
+			w.Draw(&ctx)
+		}
+		n := mallocs() - m0
+		if n != 0 && runtime.Compiler != "gc" || n >= copies {
+			t.Errorf("%s: %d allocations in %d first draws", mk.name, n, copies)
+		}
+	}
+}

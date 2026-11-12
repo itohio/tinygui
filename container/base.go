@@ -147,6 +147,13 @@ func New[T ui.Widget](width, height uint16, opts ...Option[T]) *Base[T] {
 			c.Height = h
 		}
 	}
+	// sized here, not on the first draw: the first draw (a page shown for
+	// the first time) allocates nothing; the guards in drawArranged and
+	// setVisibility only resize when Items is replaced later
+	if c.arranger != nil {
+		c.rects = make([]layout.Rect, len(c.Items))
+	}
+	c.resetVisibility()
 	return c
 }
 
@@ -361,14 +368,23 @@ func (c *Base[T]) clampIndex(a int) int {
 	return a
 }
 
+// resetVisibility sizes the visibility record to Items, every child not
+// yet drawn (-1).
+func (c *Base[T]) resetVisibility() {
+	if cap(c.visible) < len(c.Items) {
+		c.visible = make([]int8, len(c.Items))
+	}
+	c.visible = c.visible[:len(c.Items)]
+	for j := range c.visible {
+		c.visible[j] = -1
+	}
+}
+
 // setVisibility records child i's visibility and tells the child when it
 // changes, or when it is first drawn.
 func (c *Base[T]) setVisibility(i int, item ui.Widget, visible bool) {
-	if len(c.visible) != len(c.Items) { // first draw, or Items changed
-		c.visible = make([]int8, len(c.Items))
-		for j := range c.visible {
-			c.visible[j] = -1
-		}
+	if len(c.visible) != len(c.Items) { // Items replaced since New
+		c.resetVisibility()
 	}
 	v := int8(0)
 	if visible {
