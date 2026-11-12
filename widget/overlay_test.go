@@ -147,3 +147,30 @@ func (r *fillRecorder) FillRectangle(x, y, w, h int16, _ color.RGBA) error {
 	r.fills = append(r.fills, [4]int16{x, y, w, h})
 	return nil
 }
+
+// A bound index past the end opens on the last option and chooses it; a
+// dropdown with no options doesn't open (verify B-F3: these panicked).
+func TestDropdownClampsItsIndexAndNeedsOptions(t *testing.T) {
+	ctx := ui.NewContext(nopDisplay{200, 100}, 200, 100, 0, 0)
+	idx := 7
+	dd := widget.NewDropdown(60, style, []string{"a", "b"}, &idx, nil)
+	page := container.New[ui.Widget](200, 100, container.WithChildren[ui.Widget](dd))
+	o := container.NewOverlay(page)
+	page.Draw(&ctx)
+	require.True(t, dd.Open())
+	require.NotPanics(t, func() { o.Interact(ui.ENTER) })
+	require.Equal(t, 1, idx)
+
+	empty := 0
+	none := widget.NewDropdown(60, style, nil, &empty, nil)
+	page2 := container.New[ui.Widget](200, 100, container.WithChildren[ui.Widget](none))
+	o2 := container.NewOverlay(page2)
+	page2.Draw(&ctx)
+	require.False(t, none.Open())
+	require.NotPanics(t, func() {
+		none.Interact(ui.ENTER)
+		o2.Interact(ui.DOWN)
+		o2.Interact(ui.ENTER)
+	})
+	require.Nil(t, o2.Top())
+}

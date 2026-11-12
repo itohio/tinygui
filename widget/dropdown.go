@@ -48,13 +48,17 @@ func (d *Dropdown) Draw(ctx ui.Context) {
 	}
 }
 
-// Open shows the list. It returns false without an overlay host.
+// Open shows the list. It returns false without an overlay host or with no
+// options; the list starts on the bound index, clamped to the options.
 func (d *Dropdown) Open() bool {
+	if len(d.options) == 0 {
+		return false
+	}
 	h := ui.FindOverlayHost(d)
 	if h == nil {
 		return false
 	}
-	d.list.sel = max(*d.index, 0)
+	d.list.sel = min(max(*d.index, 0), len(d.options)-1)
 	y := d.y + int16(d.Height)
 	_, lh := d.list.Size()
 	if sz, ok := h.(ui.Sizer); ok {
