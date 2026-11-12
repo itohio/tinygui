@@ -188,3 +188,5 @@ func (l *life) fullPress(b Button) bool {
 func (l *life) preview() []uint8      { return l.cells[:] }
 func (l *life) palette() []color.RGBA { return lifePalette }
 func (l *life) showFull()             { l.fullOn = true }
+
+func (l *life) reset() { l.seed() }

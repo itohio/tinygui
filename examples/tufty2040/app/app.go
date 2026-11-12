@@ -97,6 +97,7 @@ type App struct {
 	pngIdx, pngChoiceIdx   int
 	bitmapIdx              int
 	menu                   *menu
+	overlay                *container.Overlay
 	picturesPage           *page
 	full                   *widget.CellGrid // a demo drawn full screen instead of the UI
 	fullCtx                ui.ContextImpl
@@ -182,6 +183,7 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 		container.WithLayout[ui.Widget](layout.VList(0)),
 		container.WithChildren[ui.Widget](a.tabs, a.pager, a.footer),
 	)
+	a.overlay = container.NewOverlay(a.root)
 	a.ctx = ui.NewContext(d, ScreenW, ScreenH, 0, 0)
 	a.tabsCtx = ui.NewContext(d, ScreenW, tabsH, 0, 0)
 	a.footCtx = ui.NewContext(d, ScreenW, footerH, 4, ScreenH-footerH)
@@ -286,6 +288,7 @@ func (a *App) Draw() {
 		a.tabs.Draw(&a.tabsCtx)
 		fillRect(a.d, 0, ScreenH-footerH, ScreenW, footerH, colBG)
 		a.footer.Draw(&a.footCtx)
+		a.overlay.DrawLayers(&a.ctx) // popups, dialogs, dropdown lists on top
 	}
 }
 
@@ -306,6 +309,8 @@ func (a *App) footerText() string {
 	switch {
 	case a.saver:
 		t.str("screensaver - any key")
+	case a.overlay.Top() != nil:
+		t.str("up/down choose  A ok  B cancel")
 	case a.editing:
 		t.str("EDIT  up/down change  A ok  B cancel")
 	default:
@@ -330,6 +335,12 @@ func (a *App) Press(b Button, long bool) {
 		return
 	}
 	if a.full != nil && a.pages[a.cur].demo.fullPress(b) {
+		return
+	}
+	if a.overlay.Top() != nil { // a dialog or list is open: it gets the buttons
+		if cmd, ok := overlayCmd[b]; ok {
+			a.overlay.Interact(cmd)
+		}
 		return
 	}
 	p := a.pages[a.cur]
@@ -377,6 +388,10 @@ func (a *App) Press(b Button, long bool) {
 			a.cancelEdit()
 			return
 		}
+		if p.demo == a.menu && p.nav.Depth() == 1 {
+			a.menuOptions() // nothing to go back to on the Demos page
+			return
+		}
 		p.nav.Back()
 	}
 }
@@ -398,6 +413,10 @@ func (a *App) enter(p *page) {
 		return
 	}
 	cur := p.nav.Current()
+	if dd, ok := cur.(*widget.Dropdown); ok {
+		dd.Open() // the list opens in the overlay and takes the buttons
+		return
+	}
 	if t, ok := cur.(interface{ activate() }); ok {
 		t.activate() // e.g. a demo tile: opens the demo full screen
 		return

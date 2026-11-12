@@ -24,7 +24,7 @@ import (
 	"github.com/itohio/tinygui/examples/tufty2040/app"
 )
 
-const tour = "wait:60,shot:00-demos,a,wait:40,shot:00b-demos-life-full,b,down,wait:30,shot:00c-demos-water,down,down,wait:30,shot:00d-demos-pong,a,wait:20,shot:00e-demos-pong-full,b,up,up,up,c,wait:240,shot:01-dashboard," +
+const tour = "wait:60,shot:00-demos,a,wait:40,shot:00b-demos-life-full,b,down,wait:30,shot:00c-demos-water,down,down,wait:30,shot:00d-demos-pong,a,wait:20,shot:00e-demos-pong-full,b,down,down,a,wait:5,shot:00f-demos-dropdown,down,a,wait:10,shot:00g-demos-speed2,b,wait:5,shot:00h-demos-options,down,a,wait:5,shot:00i-demos-reset-confirm,a,wait:20,shot:00j-demos-reset-done,b,down,down,a,wait:5,shot:00k-demos-about,a,up,up,up,up,up,c,wait:240,shot:01-dashboard," +
 	"c,wait:20,shot:02-gauges,a,up,up,up+,shot:03-gauges-edit-level,a," +
 	"down,a,up,up,a,up,shot:04-gauges-edit-mix,b," +
 	"c,wait:10,a,shot:05-controls-led-on,down,a,up,up,shot:06-controls-edit-led,a," +

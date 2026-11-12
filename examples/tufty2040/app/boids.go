@@ -53,12 +53,7 @@ type boids struct {
 
 func newBoids() *boids {
 	b := &boids{count: 1}
-	for i := range boidsMax {
-		b.x[i] = int32(rand32() % (boidsW * boidsFix))
-		b.y[i] = int32(rand32() % (boidsH * boidsFix))
-		b.vx[i] = int32(rand32()%(2*boidsVMax)) - boidsVMax
-		b.vy[i] = int32(rand32()%(2*boidsVMax)) - boidsVMax
-	}
+	b.reset()
 	b.grid = widget.NewCellGrid(boidsW, boidsH, boidsPitch, 1, widget.CellRound, b.cells[:], boidsPalette, colBG)
 	b.full = widget.NewCellGrid(boidsW, boidsH, 5, 1, widget.CellRound, b.cells[:], boidsPalette, colBG)
 	return b
@@ -271,3 +266,14 @@ func (a *App) pageBoids() *page {
 func (b *boids) preview() []uint8      { return b.cells[:] }
 func (b *boids) palette() []color.RGBA { return boidsPalette }
 func (b *boids) showFull()             { b.fullOn = true }
+
+// reset scatters every boid at a random place and heading.
+func (b *boids) reset() {
+	for i := range boidsMax {
+		b.x[i] = int32(rand32() % (boidsW * boidsFix))
+		b.y[i] = int32(rand32() % (boidsH * boidsFix))
+		b.vx[i] = int32(rand32()%(2*boidsVMax)) - boidsVMax
+		b.vy[i] = int32(rand32()%(2*boidsVMax)) - boidsVMax
+	}
+	clear(b.cells[:])
+}

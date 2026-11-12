@@ -22,6 +22,7 @@ type previewer interface {
 	preview() []uint8
 	palette() []color.RGBA
 	showFull()
+	reset()
 }
 
 const (
@@ -95,19 +96,34 @@ func (t *tile) Draw(ctx ui.Context) {
 // menu is the Demos page's demo: it ticks every tile's demo, or only the one
 // shown full screen.
 type menu struct {
-	tiles []*tile
-	full  *tile
-	log   func(string)
+	tiles  []*tile
+	full   *tile
+	log    func(string)
+	speed  int // index into menuSpeeds
+	paused bool
+	frame  int
 }
+
+var menuSpeeds = []string{"speed 1/2", "speed x1", "speed x2"}
 
 func (m *menu) tick() {
 	if m.full != nil {
 		m.full.d.tick()
 		return
 	}
+	m.frame++
+	steps := m.speed // 0: every other frame, 1: once, 2: twice
+	if steps == 0 {
+		steps = m.frame & 1
+	}
+	if m.paused {
+		steps = 0
+	}
 	for _, t := range m.tiles {
 		t0 := time.Now()
-		t.d.tick()
+		for range steps {
+			t.d.tick()
+		}
 		cells := t.d.preview()
 		t.small.Cells, t.big.Cells = cells, cells
 		t.tickUS = time.Since(t0).Microseconds()
@@ -142,7 +158,7 @@ func (m *menu) report(log func(string)) {
 }
 
 func (a *App) pageDemos(demos ...*page) *page {
-	m := &menu{log: a.log}
+	m := &menu{log: a.log, speed: 1}
 	children := make([]ui.Widget, len(demos))
 	for i, p := range demos {
 		t := newTile(p.name, p.demo.(previewer), m.open)
@@ -150,8 +166,51 @@ func (a *App) pageDemos(demos ...*page) *page {
 		children[i] = t
 	}
 	a.menu = m
+	// a combo box among the tiles: its list opens over the live previews
+	children = append(children, widget.NewDropdown(76, a.overlayStyle(), menuSpeeds, &m.speed,
+		func(_ int, s string) { a.log("demos " + s) }))
 	p := a.newPageOpt("Demos", container.WithArranger[ui.Widget](&layout.Wrap{
 		Gap: 4, Main: layout.Center, Cross: layout.Center, Block: layout.Center}), children...)
 	p.demo = m
 	return p
+}
+
+// ---- overlays on the Demos page ----
+
+// overlayCmd maps the badge's buttons to commands for an open dialog or list.
+var overlayCmd = map[Button]ui.UserCommand{BtnUp: ui.UP, BtnDown: ui.DOWN, BtnA: ui.ENTER, BtnB: ui.BACK}
+
+func (a *App) overlayStyle() widget.OverlayStyle {
+	return widget.OverlayStyle{Font: fontBody, LineH: 13, FG: colFG, BG: colPanel, Border: colMuted, Accent: colAccent}
+}
+
+// menuOptions is the Demos page's B: a choice question over the live tiles.
+func (a *App) menuOptions() {
+	m := a.menu
+	pause := "Pause all"
+	if m.paused {
+		pause = "Resume all"
+	}
+	opts := []string{pause, "Reset all...", "About", "Close"}
+	a.overlay.OpenCentered(widget.NewDialog(a.overlayStyle(), "Demos", nil, opts, func(i int) {
+		switch i {
+		case 0:
+			m.paused = !m.paused
+			a.log("demos " + pause)
+		case 1:
+			a.overlay.OpenCentered(widget.NewDialog(a.overlayStyle(), "Reset all demos?",
+				[]string{"Life, water, fire, pong and", "boids start over."}, []string{"Reset", "Cancel"},
+				func(i int) {
+					if i == 0 {
+						for _, t := range m.tiles {
+							t.d.reset()
+						}
+						a.log("demos reset")
+					}
+				}, nil))
+		case 2:
+			a.overlay.OpenCentered(widget.NewDialog(a.overlayStyle(), "About",
+				[]string{"tinygui on a Tufty 2040:", "five live demos in tiles,", "laid out by layout.Wrap.", "A or B closes this."}, nil, nil, nil))
+		}
+	}, nil))
 }

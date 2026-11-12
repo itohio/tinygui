@@ -270,3 +270,5 @@ func (p *pong) showFull() {
 	p.fullOn, p.player, p.score = true, true, [2]int{}
 	p.target = p.pad[0]
 }
+
+func (p *pong) reset() { p.score = [2]int{}; p.serve(1) }

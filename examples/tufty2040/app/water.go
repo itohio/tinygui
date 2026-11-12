@@ -276,3 +276,5 @@ func (w *water) fullPress(b Button) bool {
 	}
 	return true
 }
+
+func (w *water) reset() { w.fill() }
