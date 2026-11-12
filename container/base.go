@@ -11,6 +11,8 @@ import (
 type Base[T ui.Widget] struct {
 	ui.WidgetBase
 	layouter layout.Strategy
+	arranger layout.Arranger
+	rects    []layout.Rect // arranger output, reused
 	lastTime time.Time
 	index    int
 	active   bool
@@ -34,6 +36,22 @@ func WithLayout[T ui.Widget](strategy layout.Strategy) Option[T] {
 		c.layouter = strategy
 	}
 }
+
+// WithArranger places the children with an arranger (rows and columns with
+// weights and alignment, wrapping rows, tables, anchored stacks) instead of
+// a cursor strategy. It is re-run on every Draw, so children that change
+// size are laid out again. With a zero width or height the container takes
+// the size the arranger measures, if it is a layout.Measurer.
+func WithArranger[T ui.Widget](a layout.Arranger) Option[T] {
+	return func(c *Base[T]) {
+		c.arranger = a
+	}
+}
+
+// Len and SizeAt let arrangers read the children's sizes (layout.Sizes).
+func (c *Base[T]) Len() int { return len(c.Items) }
+
+func (c *Base[T]) SizeAt(i int) (uint16, uint16) { return c.Items[i].Size() }
 
 // WithChildren appends child widgets to the container.
 func WithChildren[T ui.Widget](children ...T) Option[T] {
@@ -108,6 +126,15 @@ func New[T ui.Widget](width, height uint16, opts ...Option[T]) *Base[T] {
 	for _, opt := range opts {
 		opt(c)
 	}
+	if m, ok := c.arranger.(layout.Measurer); ok && (width == 0 || height == 0) {
+		w, h := m.Measure(c)
+		if width == 0 {
+			c.Width = w + uint16(2*(c.marginX+c.paddingX))
+		}
+		if height == 0 {
+			c.Height = h + uint16(2*(c.marginY+c.paddingY))
+		}
+	}
 	if c.layouter != nil && (width == 0 || height == 0) {
 		w, h := determineSize(width, height, c.layouter, c.Items)
 		if width == 0 {
@@ -132,6 +159,10 @@ func (c *Base[T]) Draw(ctx ui.Context) {
 	}
 	localCtx := ctx.Clone(c, uint16(innerW), uint16(innerH))
 	localCtx.SetPos(c.marginX+c.paddingX, c.marginY+c.paddingY)
+	if c.arranger != nil {
+		c.drawArranged(localCtx, innerW-2*c.paddingX, innerH-2*c.paddingY)
+		return
+	}
 
 	for _, item := range c.Items {
 		visible := childVisible(localCtx, item)
@@ -148,6 +179,23 @@ func (c *Base[T]) Draw(ctx ui.Context) {
 		}
 		if !c.layouter(localCtx, item) {
 			return
+		}
+	}
+}
+
+func (c *Base[T]) drawArranged(ctx ui.Context, w, h int16) {
+	if cap(c.rects) < len(c.Items) {
+		c.rects = make([]layout.Rect, len(c.Items))
+	}
+	rects := c.rects[:len(c.Items)]
+	c.arranger.Arrange(uint16(max(w, 0)), uint16(max(h, 0)), c, rects)
+	ox, oy := c.marginX+c.paddingX, c.marginY+c.paddingY
+	for i, item := range c.Items {
+		ctx.SetPos(ox+rects[i].X, oy+rects[i].Y)
+		visible := childVisible(ctx, item)
+		c.setVisibility(item, visible)
+		if visible {
+			item.Draw(ctx)
 		}
 	}
 }
