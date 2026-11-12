@@ -147,7 +147,13 @@ func (l *InteractiveLabel[T]) SetSelected(sel bool) {
 }
 
 func (l *InteractiveLabel[T]) displayText() string {
-	text := l.formatter(l.pending)
+	v := l.pending
+	if !l.selecting && l.external != nil {
+		// not editing: show the bound value as it is now, even if something
+		// else changed it (it was loaded only when editing began)
+		v = clamp(l.min, l.max, *l.external)
+	}
+	text := l.formatter(v)
 	if l.enabled && l.Selected() {
 		return "▲ " + text + " ▼"
 	}

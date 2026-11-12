@@ -59,3 +59,22 @@ func TestInteractiveLabelDisable(t *testing.T) {
 	require.False(t, label.Interact(ui.UP))
 	require.Equal(t, float32(0), label.pending)
 }
+
+// The label shows its bound value when that value changes elsewhere (a
+// serial command, another widget); while it is being edited it shows the
+// pending edit instead.
+func TestInteractiveLabelFollowsItsBoundValue(t *testing.T) {
+	value := 80
+	label := NewInteractiveLabel[int](64, 12, WithValue(&value), WithRange[int](10, 100), WithSteps[int](5, 25),
+		WithFont[int](&tinyfont.TomThumb))
+	value = 60
+	require.Equal(t, "60", label.displayText())
+	value = 200
+	require.Equal(t, "100", label.displayText(), "clamped to the range")
+
+	value = 60
+	label.SetSelected(true) // editing
+	label.Interact(ui.UP)
+	value = 30 // changed elsewhere mid-edit: the edit wins on screen
+	require.Contains(t, label.displayText(), "65")
+}
