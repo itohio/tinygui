@@ -33,7 +33,8 @@ const tour = "wait:300,shot:01-dashboard," +
 	"c,wait:10,shot:10-layouts," +
 	"c,wait:10,a,down,down,down,down,down,down,down,down,down,down,down,down,shot:11-list-scrolled," +
 	"c,wait:10,shot:12-log," +
-	"user:1500,wait:5,shot:13-saver"
+	"user:1500,wait:5,shot:13-saver,a," +
+	"c,wait:60,shot:14-life,down,a,up,shot:15-life-gun,a,wait:90,shot:16-life-gun-later"
 
 type fakeHW struct{ t *time.Time }
 

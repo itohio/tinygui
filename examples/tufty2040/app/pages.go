@@ -161,7 +161,7 @@ func (a *App) pageControls() *page {
 		"A commit, B revert. Accent recolours the UI.",
 		"Sample period uses ui.DurationAdd steps.",
 	})
-	return a.newPage("Control",
+	return a.newPage("Ctrl",
 		newField("User LED", captionW, innerW, led),
 		newField("LED level", captionW, innerW, ledPct),
 		newField("Backlight", captionW, innerW, bl),

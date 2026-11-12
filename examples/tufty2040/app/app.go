@@ -95,6 +95,8 @@ type App struct {
 	accent                 int
 	pngIdx, pngChoiceIdx   int
 	bitmapIdx              int
+	life                   *life
+	lifePage               *page
 	speedMS                int
 
 	curves     [4]float32
@@ -157,9 +159,11 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 		cmds:         make(chan command, 16),
 	}
 	a.restartCurves()
+	a.life = newLife()
+	a.lifePage = a.pageLife()
 	a.pages = []*page{
 		a.pageDashboard(), a.pageGauges(), a.pageControls(), a.pagePictures(),
-		a.pageLayouts(), a.pageList(), a.pageLog(),
+		a.pageLayouts(), a.pageList(), a.pageLog(), a.lifePage,
 	}
 	names := make([]string, len(a.pages))
 	pageWidgets := make([]ui.Widget, len(a.pages))
@@ -235,6 +239,9 @@ func (a *App) Update(now time.Time) {
 		a.saverPos = a.saverCtx.Clone(a.saverW, 150, 40)
 	}
 	a.phase = (a.phase + 3) & 255
+	if a.pages[a.cur] == a.lifePage && a.life.running {
+		a.life.step()
+	}
 	if a.cur == 3 { // only animate the plasma while it is visible
 		renderPlasma(a.plasma[:], plasmaW, plasmaH, a.phase)
 	}
