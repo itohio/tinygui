@@ -162,7 +162,7 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 	a.restartCurves()
 	a.pages = []*page{
 		a.pageDashboard(), a.pageGauges(), a.pageControls(), a.pagePictures(),
-		a.pageLayouts(), a.pageList(), a.pageLog(), a.pageLife(), a.pageWater(),
+		a.pageLayouts(), a.pageList(), a.pageLog(), a.pageLife(), a.pageWater(), a.pageFire(),
 	}
 	names := make([]string, len(a.pages))
 	pageWidgets := make([]ui.Widget, len(a.pages))
