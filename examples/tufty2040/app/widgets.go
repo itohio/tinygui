@@ -395,6 +395,7 @@ type tabBar struct {
 	ui.WidgetBase
 	names  []string
 	active int
+	first  int // first visible tab
 	anim   animation.Animator
 	from   [2]float32
 	to     [2]float32
@@ -408,13 +409,20 @@ func newTabBar(w, h uint16, names []string) *tabBar {
 	return t
 }
 
+// tabsVisible tabs fit the bar; with more, the bar scrolls so the active tab
+// stays in view (two tabs of context on its left where possible).
+const tabsVisible = 6
+
+func (t *tabBar) visible() int { return min(len(t.names), tabsVisible) }
+
 func (t *tabBar) slot(i int) [2]float32 {
-	sw := float32(t.Width) / float32(len(t.names))
-	return [2]float32{sw * float32(i), sw}
+	sw := float32(t.Width) / float32(t.visible())
+	return [2]float32{sw * float32(i-t.first), sw}
 }
 
 func (t *tabBar) setActive(i int, nowUS int64) {
 	t.active = i
+	t.first = min(max(i-2, 0), len(t.names)-t.visible())
 	t.from = t.cur
 	t.to = t.slot(i)
 	t.anim.Start(t.from[:], t.to[:], nowUS)
@@ -432,14 +440,23 @@ func (t *tabBar) Draw(ctx ui.Context) {
 	x, y := ctx.DisplayPos()
 	w, h := int16(t.Width), int16(t.Height)
 	fillRect(d, x, y, w, h, colPanel)
-	sw := w / int16(len(t.names))
-	for i, n := range t.names {
+	vis := t.visible()
+	sw := w / int16(vis)
+	for i := t.first; i < t.first+vis; i++ {
 		c := colMuted
 		if i == t.active {
 			c = colFG
 		}
+		n := t.names[i]
 		tw := textWidth(fontBody, n)
-		ui.DrawText(d, fontBody, x+int16(i)*sw+(sw-tw)/2, y+h-8, n, c)
+		ui.DrawText(d, fontBody, x+int16(i-t.first)*sw+(sw-tw)/2, y+h-8, n, c)
+	}
+	// more tabs beyond the edges
+	if t.first > 0 {
+		ui.DrawText(d, fontBody, x+1, y+h-8, "<", colMuted)
+	}
+	if t.first+vis < len(t.names) {
+		ui.DrawText(d, fontBody, x+w-6, y+h-8, ">", colMuted)
 	}
 	fillRect(d, x+int16(t.cur[0])+4, y+h-3, int16(t.cur[1])-8, 3, colAccent)
 }
