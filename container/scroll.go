@@ -119,7 +119,18 @@ func (s *Scroll) maxOffsetY() int16 {
 }
 
 func (s *Scroll) drawVisible(ctx ui.Context, viewportW, viewportH int16) {
-	localCtx := ctx.Clone(s, uint16(viewportW), uint16(viewportH))
+	// Children are laid out in content space (offsetContext shifts them on
+	// screen), so the layout context must span the content, not the viewport:
+	// layouts stop at the context bounds. Visibility is still tested against
+	// the viewport.
+	layoutW, layoutH := s.contentW, s.contentH
+	if layoutW < uint16(viewportW) {
+		layoutW = uint16(viewportW)
+	}
+	if layoutH < uint16(viewportH) {
+		layoutH = uint16(viewportH)
+	}
+	localCtx := ctx.Clone(s, layoutW, layoutH)
 	originX, originY := localCtx.Start()
 	for _, item := range s.Items {
 		itemW, itemH := item.Size()
