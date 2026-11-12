@@ -71,20 +71,14 @@ func NewInteractiveLabelChoice(width, height uint16, items []string, opts ...Int
 
 	selectorOpts := cfg.selectorOpts
 	choice := &InteractiveLabelChoice{}
-	selectorOpts = append(selectorOpts, WithSelectorChange[string](func(i int, value string) {
-		if cfg.onChange != nil {
-			cfg.onChange(i, value)
-		}
-		choice.Label.SetText(value)
-	}))
+	if cfg.onChange != nil {
+		selectorOpts = append(selectorOpts, WithSelectorChange[string](cfg.onChange))
+	}
 
 	selector := NewInteractiveSelector(items, selectorOpts...)
 	choice.selector = selector
 
-	value, _ := selector.Current()
-	choice.Label = *NewLabel(width, height, cfg.font, nil, cfg.color)
-	choice.Label.SetText(value)
-
+	choice.Label = *NewLabel(width, height, cfg.font, choice.text, cfg.color)
 	return choice
 }
 
@@ -113,11 +107,20 @@ func (c *InteractiveLabelChoice) Interact(cmd ui.UserCommand) bool {
 		if cmd == ui.ESC || cmd == ui.BACK {
 			return c.Label.WidgetBase.Interact(cmd)
 		}
-		value, _ := c.selector.Current()
-		c.Label.SetText(value)
 		return true
 	}
 	return c.Label.WidgetBase.Interact(cmd)
+}
+
+// text is the label's provider: the selected item, re-read from the bound
+// index when something else changed it (the selector writes it on every
+// change, but nothing read it back, so the label went stale).
+func (c *InteractiveLabelChoice) text() string {
+	if s := c.selector; s.external != nil && *s.external != s.index {
+		s.Reset(false)
+	}
+	value, _ := c.selector.Current()
+	return value
 }
 
 // Draw renders the current label.

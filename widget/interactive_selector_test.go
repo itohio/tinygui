@@ -106,3 +106,17 @@ func TestInteractiveWidgetChoiceCyclesWidgets(t *testing.T) {
 	require.True(t, choice.Interact(ui.UP))
 	require.True(t, widgets[1].Selected())
 }
+
+// A label choice bound to an index shows that index when something else
+// changes it (the Tufty fire's gravity, turned in full screen, kept reading
+// "down" on its page).
+func TestLabelChoiceFollowsItsBoundIndex(t *testing.T) {
+	idx := 0
+	c := NewInteractiveLabelChoice(60, 10, []string{"down", "left", "up"}, WithLabelChoiceIndex(&idx))
+	require.Equal(t, "down", c.Label.Text())
+	idx = 2
+	require.Equal(t, "up", c.Label.Text())
+	c.Interact(ui.UP) // and editing still writes it back
+	require.Equal(t, 0, idx)
+	require.Equal(t, "down", c.Label.Text())
+}
