@@ -25,3 +25,32 @@ func TestRandomContextMovesWithoutAllocating(t *testing.T) {
 		t.Fatalf("%.0f allocations per move and draw", allocs)
 	}
 }
+
+// moved is a context whose display position is shifted, like a scroll's
+// offset context.
+type moved struct {
+	*ContextImpl
+	dx, dy int16
+}
+
+func (m moved) DisplayPos() (int16, int16) {
+	x, y := m.ContextImpl.DisplayPos()
+	return x - m.dx, y - m.dy
+}
+
+// A child context under any parent (here a shifted one, as inside a
+// Scroll) starts at the parent's display position and costs no allocation
+// (it used to fall back to the parent's Clone, allocating per draw).
+func TestChildContextUnderAnyParent(t *testing.T) {
+	base := NewContext(&pixelSet{}, 200, 100, 10, 20)
+	base.SetPos(5, 6)
+	var p Context = &moved{&base, 3, 40}
+	var dst ContextImpl
+	ctx := ChildContext(p, &dst, nil, 50, 10)
+	if x, y := ctx.DisplayPos(); x != 10+5-3 || y != 20+6-40 {
+		t.Fatalf("child at (%d, %d), want (12, -14)", x, y)
+	}
+	if n := testing.AllocsPerRun(100, func() { ChildContext(p, &dst, nil, 50, 10) }); n != 0 {
+		t.Fatalf("%.0f allocations per child context", n)
+	}
+}

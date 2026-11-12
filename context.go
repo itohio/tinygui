@@ -81,18 +81,17 @@ func (c *ContextImpl) Clone(widget Widget, W, H uint16) Context {
 	return &ret
 }
 
-// ChildContext returns what parent.Clone(widget, W, H) returns, but when
-// parent is a plain *ContextImpl it fills and returns dst instead of
-// allocating. Containers keep dst between frames, so drawing a tree costs no
-// allocation per container per frame (per band, with a banded framebuffer).
-// Other context types (scroll offsets, RandomContext) keep their own Clone.
+// ChildContext fills dst as the context of a w×h child drawn where parent's
+// cursor is (parent.DisplayPos), and returns it: what parent.Clone would
+// return, without allocating. Containers keep dst between frames, so drawing
+// a tree costs no allocation per container per frame (per band, with a
+// banded framebuffer). Any parent works: a scroll's offset context or a
+// RandomContext reports its display position already moved, so the child
+// needs nothing of the parent's type (falling back to their Clone allocated
+// a context per draw for every container inside a Scroll).
 func ChildContext(parent Context, dst *ContextImpl, widget Widget, W, H uint16) Context {
-	p, ok := parent.(*ContextImpl)
-	if !ok {
-		return parent.Clone(widget, W, H)
-	}
-	x, y := p.DisplayPos()
-	*dst = NewContext(p.d, W, H, x, y)
+	x, y := parent.DisplayPos()
+	*dst = NewContext(parent.D(), W, H, x, y)
 	dst.widget = widget
 	return dst
 }
