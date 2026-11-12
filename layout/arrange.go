@@ -134,7 +134,7 @@ func (l *Line) Arrange(w, h uint16, items Sizes, out []Rect) {
 			// the last weighted child takes the rounding remainder
 			cell = shared
 			if left > wt {
-				cell = shared * wt / left
+				cell = int16(int32(shared) * int32(wt) / int32(left)) // int32: shared×weight overflows int16
 			}
 			shared -= cell
 			left -= wt

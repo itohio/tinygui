@@ -89,3 +89,12 @@ func TestArrangersDoNotAllocate(t *testing.T) {
 		}
 	}
 }
+
+// Large weights don't overflow the share (verify B-F2: shared*weight was
+// int16; 200:55 in 320 put the second cell at x = -6).
+func TestRowLargeWeightsDoNotOverflow(t *testing.T) {
+	s := sizes{{0, 1}, {0, 1}}
+	r := arrange(Row(0, Start, Start, 200, 55), 320, 1, s)
+	require.Equal(t, int16(0), r[0].X)
+	require.Equal(t, int16(250), r[1].X) // 320·200/255 = 250; the second cell spans 250..320
+}
