@@ -37,7 +37,7 @@ const tour = "wait:60,shot:00-demos,a,wait:40,shot:00b-demos-life-full,b,down,wa
 	"c,wait:60,shot:14-life,down,a,up,shot:15-life-gun,a,wait:90,shot:16-life-gun-later,down,a,wait:40,shot:16x-life-full,b," +
 	"c,wait:40,shot:17-water,a,up,up,a,wait:60,shot:18-water-left,down,a,wait:60,shot:19-water-pour," +
 	"down,down,a,wait:20,shot:20-water-full5,up,up,wait:60,shot:21-water-full5-up,b,down,a,up,a,up,a,wait:30,shot:22-water-full4,b,shot:23-water-back," +
-	"c,wait:60,shot:24-fire,down,down,a,up,a,wait:30,shot:25-fire-tall,down,down,a,wait:30,shot:26-fire-full,a,wait:25,shot:27-fire-out,b," +
+	"c,wait:90,shot:24-fire,a,up,up,a,wait:45,shot:25-fire-left,down,down,a,wait:30,shot:26-fire-splash,down,down,a,wait:20,shot:27-fire-full,up,up,wait:45,shot:27b-fire-full-up,a,wait:30,shot:27c-fire-full-splash,b," +
 	"c,wait:45,shot:28-pong,down,a,wait:30,shot:29-pong-you,up,up,wait:20,shot:30-pong-up,b,shot:31-pong-back," +
 	"c,wait:90,shot:32-boids,down,down,a,wait:60,shot:33-boids-full,a,wait:15,shot:34-boids-scatter,b"
 

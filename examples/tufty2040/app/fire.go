@@ -8,34 +8,50 @@ import (
 	"github.com/itohio/tinygui/widget"
 )
 
-// Fire: the "Doom fire" (heat spreads up from a burning bottom row, cooling
-// and drifting at random) on a 64×48 grid, drawn as an LED matrix: 3 px in
-// the page, 5 px round LEDs on the whole screen.
+// Fire burns a liquid fuel (owner: "a little bit of liquid that piles up in
+// the corner or spreads over the edge, and it just burns from that"). The
+// fuel is the water's liquid engine: it pools, spreads and follows gravity.
+// Fuel exposed to air (the cell against gravity is empty) burns and is used
+// up; flames rise against gravity as heat spreading from the burning
+// surface, cooling and flickering (the "Doom fire" spread, turned with
+// gravity), and they light fuel they touch. Drawn on a 64×48 LED grid: the
+// flame palette over a dim fuel colour.
 const (
 	fireW, fireH = 64, 48
-	fireMax      = 36
+	fireMax      = 36 // hottest flame (palette index)
+	fireFuel     = fireMax + 1
 	firePitch    = 3
+	firePool     = 120 // fuel cells in a fresh pool
+	fireSplash   = 40  // fuel cells A adds in full screen
+	// a burning surface cell is used up with probability 1/256 per step: a
+	// fresh pool burns for about a minute
+	fireBurnMask = 255
+	// steps without fuel before a new splash drops in (the demo keeps going)
+	fireRefuel = 60
+	// heat at which fuel catches fire
+	fireIgnite = 12
 )
 
 var (
-	fireWinds   = []string{"left", "calm", "right"}
 	fireHeights = []string{"low", "mid", "tall"}
-	// horizontal drift for two random bits, per wind
-	fireDrift = [3][4]int8{{-2, -1, -1, 0}, {-1, 0, 0, 1}, {0, 1, 1, 2}}
-	// cooling per row for two random bits, per height; the mean sets how
-	// high flames reach (fireMax / mean rows): 2.25 → 16, 1.25 → 29,
-	// 0.75 → 48, the spread makes the tongues
+	// sideways flicker for two random bits
+	fireDrift = [4]int8{-1, 0, 0, 1}
+	// cooling per cell travelled, for two random bits, per height; the mean
+	// sets how far flames reach (fireMax / mean): 2.25 → 16, 1.25 → 29,
+	// 0.75 → 48 cells, the spread makes the tongues
 	fireCool = [3][4]uint8{{1, 2, 3, 3}, {0, 1, 2, 2}, {0, 0, 1, 2}}
 )
 
-// firePalette is the classic Doom fire palette; index 0 is an unlit LED.
+// firePalette is the classic Doom fire palette (index 0 an unlit LED) plus
+// the fuel's dim amber.
 var firePalette = func() []color.RGBA {
-	hex := [fireMax + 1]uint32{
+	hex := [fireMax + 2]uint32{
 		0x120e0e, 0x1f0707, 0x2f0f07, 0x470f07, 0x571707, 0x671f07, 0x771f07, 0x8f2707, 0x9f2f07,
 		0xaf3f07, 0xbf4707, 0xc74707, 0xdf4f07, 0xdf5707, 0xdf5707, 0xd75f07, 0xd75f07, 0xd7670f,
 		0xcf6f0f, 0xcf770f, 0xcf7f0f, 0xcf8717, 0xc78717, 0xc78f17, 0xc7971f, 0xbf9f1f, 0xbf9f1f,
 		0xbfa727, 0xbfa727, 0xbfaf2f, 0xb7af2f, 0xb7b72f, 0xb7b737, 0xcfcf6f, 0xdfdf9f, 0xefefc7,
 		0xffffff,
+		0x7a4c14, // fuel: dim amber, visible next to the flames
 	}
 	p := make([]color.RGBA, len(hex))
 	for i, h := range hex {
@@ -45,59 +61,174 @@ var firePalette = func() []color.RGBA {
 }()
 
 type fire struct {
-	cells   [fireW * fireH]uint8
-	burning bool
-	wind    int
-	height  int
-	stepUS  int64
-	grid    *widget.CellGrid
-	full    *widget.CellGrid
-	fullOn  bool
-	txt     textBuf
-	log     func(string)
+	liquid                          // the fuel
+	heat, next [fireW * fireH]uint8 // flame heat 0..fireMax, and the next step's
+	cells      [fireW * fireH]uint8 // what the grid shows
+	height     int
+	burning    int // burning fuel cells, for the page
+	empty      int // steps since the fuel ran out
+	stepUS     int64
+	grid, full *widget.CellGrid
+	fullOn     bool
+	txt, txt2  textBuf
+	log        func(string)
 }
 
 func newFire() *fire {
-	f := &fire{burning: true, wind: 1, height: 1}
+	f := &fire{liquid: newLiquid(fireW, fireH), height: 1}
 	f.grid = widget.NewCellGrid(fireW, fireH, firePitch, 1, widget.CellRound, f.cells[:], firePalette, colBG)
 	f.full = widget.NewCellGrid(fireW, fireH, 5, 1, widget.CellRound, f.cells[:], firePalette, colBG)
+	f.reset()
 	return f
+}
+
+// reset pours a fresh pool of fuel into the bottom-left corner and lights it.
+func (f *fire) reset() {
+	clear(f.state)
+	clear(f.heat[:])
+	f.dir = 0
+	n := 0
+	for y := fireH - 1; n < firePool; y-- {
+		for x := 0; x < 24 && n < firePool; x++ {
+			f.state[y*fireW+x] = newCell()
+			n++
+		}
+	}
+	f.ignite()
+}
+
+// ignite lights the fuel's surface.
+func (f *fire) ignite() {
+	for i, s := range f.state {
+		if s&liquidBit != 0 && f.exposed(i%fireW, i/fireW) {
+			f.state[i] |= liquidBurn
+		}
+	}
+}
+
+// splash drops a blob of burning fuel in from the side opposite gravity.
+func (f *fire) splash() {
+	g := gravityVec[f.dir]
+	cx, cy := fireW/2-g[0]*(fireW/2-4), fireH/2-g[1]*(fireH/2-4)
+	n := 0
+	for dy := -3; dy <= 3 && n < fireSplash; dy++ {
+		for dx := -4; dx <= 4 && n < fireSplash; dx++ {
+			x, y := cx+dx, cy+dy
+			if f.at(x, y) {
+				f.state[y*fireW+x] = newCell() | liquidBurn
+				n++
+			}
+		}
+	}
+}
+
+// exposed: the cell against gravity is open air (a wall is not air).
+func (f *fire) exposed(x, y int) bool {
+	g := gravityVec[f.dir]
+	ux, uy := x-g[0], y-g[1]
+	return ux >= 0 && uy >= 0 && ux < fireW && uy < fireH && f.state[uy*fireW+ux]&liquidBit == 0
 }
 
 func (f *fire) step() {
 	t0 := time.Now()
-	src := uint8(0)
-	if f.burning {
-		src = fireMax
+	f.liquid.step()
+	g := gravityVec[f.dir]
+	gx, gy := g[0], g[1]
+	px, py := -gy, gx
+
+	// burn: exposed burning fuel feeds the flames and is used up; fuel
+	// catches from burning neighbours and from hot flames
+	burning := 0
+	for i, s := range f.state {
+		if s&liquidBit == 0 {
+			continue
+		}
+		x, y := i%fireW, i/fireW
+		if s&liquidBurn == 0 {
+			if f.heat[i] >= fireIgnite || f.burningNear(x, y) && rand32()&7 == 0 {
+				f.state[i] |= liquidBurn
+			}
+			continue
+		}
+		burning++
+		if f.exposed(x, y) && rand32()&fireBurnMask == 0 {
+			f.state[i] = 0 // burnt away
+		}
 	}
-	last := (fireH - 1) * fireW
-	for x := range fireW {
-		f.cells[last+x] = src
+	f.burning = burning
+	if burning == 0 && f.count() == 0 {
+		if f.empty++; f.empty > fireRefuel {
+			f.empty = 0
+			f.splash()
+		}
 	}
-	drift, cool := &fireDrift[f.wind], &fireCool[f.height]
-	for y := 1; y < fireH; y++ {
-		row, up := y*fireW, (y-1)*fireW
+
+	// flames: each cell takes the heat of the cell below it (towards
+	// gravity), flickered sideways, minus cooling; burning surfaces are the
+	// sources
+	cool := &fireCool[f.height]
+	for y := range fireH {
 		for x := range fireW {
-			v := f.cells[row+x]
 			r := rand32()
-			nx := x + int(drift[r>>1&3])
-			if nx < 0 {
-				nx = 0
-			} else if nx >= fireW {
-				nx = fireW - 1
+			d := int(fireDrift[r&3])
+			sx, sy := x+gx+px*d, y+gy+py*d
+			var h uint8
+			if sx >= 0 && sy >= 0 && sx < fireW && sy < fireH {
+				h = f.heat[sy*fireW+sx]
 			}
-			if v > 0 {
-				cool := cool[r>>3&3]
-				if v > cool {
-					v -= cool
-				} else {
-					v = 0
-				}
+			if c := cool[r>>2&3]; h > c {
+				h -= c
+			} else {
+				h = 0
 			}
-			f.cells[up+nx] = v
+			i := y*fireW + x
+			s := f.state[i]
+			if s&liquidBit != 0 {
+				h = 0 // no flames inside the pool
+			}
+			f.next[i] = h
+		}
+	}
+	// the burning surface lights the air above it, so the fuel stays visible
+	// under its flames
+	for i, s := range f.state {
+		if s&liquidBurn == 0 {
+			continue
+		}
+		x, y := i%fireW-gx, i/fireW-gy
+		if x >= 0 && y >= 0 && x < fireW && y < fireH && f.state[y*fireW+x]&liquidBit == 0 {
+			// a flickering source: full heat 3 times in 4, else weaker,
+			// so the flames break into tongues
+			h := uint8(fireMax)
+			if rand32()&3 == 0 {
+				h = fireMax - 10
+			}
+			f.next[y*fireW+x] = h
+		}
+	}
+	copy(f.heat[:], f.next[:]) // not f.heat = f.next: TinyGo heap-allocates that copy (F-35)
+
+	for i, h := range f.heat[:] {
+		switch {
+		case h > 0:
+			f.cells[i] = h
+		case f.state[i]&liquidBit != 0:
+			f.cells[i] = fireFuel
+		default:
+			f.cells[i] = 0
 		}
 	}
 	f.stepUS = time.Since(t0).Microseconds()
+}
+
+func (f *fire) burningNear(x, y int) bool {
+	for _, o := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		nx, ny := x+o[0], y+o[1]
+		if nx >= 0 && ny >= 0 && nx < fireW && ny < fireH && f.state[ny*fireW+nx]&liquidBurn != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *fire) tick() { f.step() }
@@ -109,18 +240,18 @@ func (f *fire) fullGrid() *widget.CellGrid {
 	return nil
 }
 
-// fullPress: UP/DOWN change the wind, A lights or puts out the fire, B back
-// to the page, C leaves and changes page.
+// fullPress: UP/DOWN turn gravity (the fuel flows, the flames lean), A
+// splashes burning fuel in, B back to the page, C leaves and changes page.
 func (f *fire) fullPress(b Button) bool {
 	switch b {
 	case BtnUp:
-		f.wind = min(f.wind+1, len(fireWinds)-1)
-		f.log("wind " + fireWinds[f.wind])
+		f.turn(1)
+		f.log("gravity " + gravityNames[f.dir])
 	case BtnDown:
-		f.wind = max(f.wind-1, 0)
-		f.log("wind " + fireWinds[f.wind])
+		f.turn(-1)
+		f.log("gravity " + gravityNames[f.dir])
 	case BtnA:
-		f.burning = !f.burning
+		f.splash()
 	case BtnB:
 		f.fullOn = false
 	case BtnC:
@@ -130,13 +261,20 @@ func (f *fire) fullPress(b Button) bool {
 	return true
 }
 
+func (f *fire) preview() []uint8      { return f.cells[:] }
+func (f *fire) palette() []color.RGBA { return firePalette }
+func (f *fire) showFull()             { f.fullOn = true }
+
 func (a *App) pageFire() *page {
 	f := newFire()
 	f.log = a.log
-	burn := widget.NewToggle(44, 12, fontBody, colFG, "ON", "OFF", colGood, colTrack,
-		func() bool { return f.burning }, func(v bool) { f.burning = v })
-	wind := widget.NewInteractiveLabelChoice(52, 11, fireWinds,
-		widget.WithLabelChoiceIndex(&f.wind), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG))
+	grav := widget.NewInteractiveLabelChoice(52, 11, gravityNames,
+		widget.WithLabelChoiceIndex(&f.dir), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG),
+		widget.WithLabelChoiceChange(func(_ int, s string) { a.log("gravity " + s) }))
+	pour := widget.NewToggle(44, 12, fontBody, colFG, "ON", "OFF", colGood, colTrack,
+		func() bool { return f.pour }, func(v bool) { f.pour = v })
+	splash := widget.NewToggle(44, 12, fontBody, colFG, "DROP", "DROP", colTrack, colTrack,
+		func() bool { return false }, func(bool) { f.splash(); a.log("fire splash") })
 	height := widget.NewInteractiveLabelChoice(52, 11, fireHeights,
 		widget.WithLabelChoiceIndex(&f.height), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG))
 	full := widget.NewToggle(44, 12, fontBody, colFG, "SHOW", "SHOW", colTrack, colTrack,
@@ -144,18 +282,16 @@ func (a *App) pageFire() *page {
 	// explicit height: findings F-33
 	p := a.newPageWith("Fire", layout.VFlow(4, fireH*firePitch),
 		still(f.grid),
-		newField("Fire", 42, 104, burn),
-		newField("Wind", 42, 104, wind),
-		newField("Height", 42, 104, height),
+		newField("Gravity", 42, 104, grav),
+		newField("Fuel", 42, 104, pour),
+		newField("Splash", 42, 104, splash),
+		newField("Flames", 42, 104, height),
 		newField("Full", 42, 104, full),
-		still(a.text(104, func() string { return f.txt.reset().str("step ").int(int(f.stepUS)).str(" us").String() }, colMuted)),
+		still(a.text(104, func() string {
+			return f.txt.reset().str("fuel ").int(f.count()).str(" burn ").int(f.burning).String()
+		}, colMuted)),
+		still(a.text(104, func() string { return f.txt2.reset().str("step ").int(int(f.stepUS)).str(" us").String() }, colMuted)),
 	)
 	p.demo = f
 	return p
 }
-
-func (f *fire) preview() []uint8      { return f.cells[:] }
-func (f *fire) palette() []color.RGBA { return firePalette }
-func (f *fire) showFull()             { f.fullOn = true }
-
-func (f *fire) reset() { clear(f.cells[:]); f.burning = true }
