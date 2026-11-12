@@ -99,6 +99,8 @@ type App struct {
 	lifePage               *page
 	water                  *water
 	waterPage              *page
+	full                   *widget.CellGrid // a demo drawn full screen instead of the UI
+	fullCtx                ui.ContextImpl
 	speedMS                int
 
 	curves     [4]float32
@@ -251,6 +253,12 @@ func (a *App) Update(now time.Time) {
 			a.water.step()
 		}
 	}
+	a.full = nil
+	if a.pages[a.cur] == a.waterPage && a.water.fullOn {
+		a.full = a.water.fullView()
+		w, h := a.full.Size()
+		a.fullCtx = ui.NewContext(a.d, ScreenW, ScreenH, int16(ScreenW-int(w))/2, int16(ScreenH-int(h))/2)
+	}
 	if a.cur == 3 { // only animate the plasma while it is visible
 		renderPlasma(a.plasma[:], plasmaW, plasmaH, a.phase)
 	}
@@ -276,6 +284,8 @@ func (a *App) Draw() {
 	a.d.FillScreen(colBG)
 	if a.saver {
 		a.saverW.Draw(a.saverPos)
+	} else if a.full != nil {
+		a.full.Draw(&a.fullCtx)
 	} else {
 		a.root.Draw(&a.ctx)
 		// TinyGUI does not clip: scrolled list rows can spill over the
@@ -326,6 +336,9 @@ func (a *App) Press(b Button, long bool) {
 		a.saver = false
 		return
 	}
+	if a.full != nil && a.fullPress(b) {
+		return
+	}
 	p := a.pages[a.cur]
 	// Base's idle timer only sees Interact calls, not navigator moves; any
 	// non-navigation command (USER is ignored by containers) marks activity.
@@ -373,6 +386,30 @@ func (a *App) Press(b Button, long bool) {
 		}
 		p.nav.Back()
 	}
+}
+
+// fullPress handles buttons while a demo is full screen: UP/DOWN turn
+// gravity, A pours, B goes back to the page; C leaves and changes page as
+// usual (it returns false so Press carries on).
+func (a *App) fullPress(b Button) bool {
+	w := a.water
+	switch b {
+	case BtnUp, BtnDown:
+		if b == BtnUp {
+			w.turn(1)
+		} else {
+			w.turn(-1)
+		}
+		a.log("gravity " + waterDirs[w.dir])
+	case BtnA:
+		w.pour = !w.pour
+	case BtnB:
+		w.fullOn = false
+	case BtnC:
+		w.fullOn = false
+		return false
+	}
+	return true
 }
 
 // UserHold reports how long the USER button was held (ui.PeekButton on the board).

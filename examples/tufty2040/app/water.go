@@ -44,13 +44,20 @@ type water struct {
 	count  int
 	stepUS int64
 	grid   *widget.CellGrid
-	txt    textBuf
-	txt2   textBuf
+	// full-screen LED views of the same grid: 64×48 at 5 px (320×240) or
+	// 64×60 at 4 px (256×240); rows are a window chosen by gravity
+	full    [2]*widget.CellGrid
+	fullOn  bool
+	fullIdx int
+	txt     textBuf
+	txt2    textBuf
 }
 
 func newWater() *water {
 	w := &water{}
 	w.grid = widget.NewCellGrid(waterN, waterN, waterPitch, 1, widget.CellRound, w.shade[:], waterPalette, colBG)
+	w.full[0] = widget.NewCellGrid(waterN, 48, 5, 1, widget.CellRound, w.shade[:waterN*48], waterPalette, colBG)
+	w.full[1] = widget.NewCellGrid(waterN, 60, 4, 1, widget.CellRound, w.shade[:waterN*60], waterPalette, colBG)
 	w.fill()
 	return w
 }
@@ -133,6 +140,27 @@ func (w *water) step() {
 	w.stepUS = time.Since(t0).Microseconds()
 }
 
+var waterFullNames = []string{"5 px", "4 px"}
+
+// fullView returns the full-screen grid with its rows pointed at the part of
+// the 64 rows where the water collects: the bottom when gravity pulls down,
+// the top when up, the middle when sideways. Call from Update, not Draw.
+func (w *water) fullView() *widget.CellGrid {
+	g := w.full[w.fullIdx]
+	off := (waterN - g.Rows) / 2
+	switch waterGrav[w.dir][1] {
+	case 1:
+		off = waterN - g.Rows
+	case -1:
+		off = 0
+	}
+	g.Cells = w.shade[off*waterN : (off+g.Rows)*waterN]
+	return g
+}
+
+// turn rotates gravity one step (the full-screen view's UP/DOWN).
+func (w *water) turn(by int) { w.dir = (w.dir + by) & 7 }
+
 // waterDepthShade maps depth below the surface (along gravity) to a palette
 // index: 0 is the surface (foam), deeper is darker. A table, not a division.
 var waterDepthShade = [16]uint8{7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 1}
@@ -187,13 +215,19 @@ func (a *App) pageWater() *page {
 		func() bool { return w.pour }, func(v bool) { w.pour = v })
 	reset := widget.NewToggle(44, 12, fontBody, colFG, "FILL", "FILL", colTrack, colTrack,
 		func() bool { return false }, func(bool) { w.fill(); a.log("water refilled") })
-	const side = waterN * waterPitch                     // 192
-	return a.newPageWith("Water", layout.VFlow(4, side), // explicit height: findings F-33
+	full := widget.NewToggle(44, 12, fontBody, colFG, "SHOW", "SHOW", colTrack, colTrack,
+		func() bool { return false }, func(bool) { w.fullOn = true; a.log("water full screen") })
+	size := widget.NewInteractiveLabelChoice(52, 11, waterFullNames,
+		widget.WithLabelChoiceIndex(&w.fullIdx), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG))
+	const side = waterN * waterPitch // 192
+	// explicit height: findings F-33
+	return a.newPageWith("Water", layout.VFlow(4, side),
 		still(w.grid),
 		newField("Gravity", 42, 104, grav),
 		newField("Pour", 42, 104, pour),
 		newField("Reset", 42, 104, reset),
-		a.caption(104, "A: select, UP/DOWN"),
+		newField("Full", 42, 104, full),
+		newField("LEDs", 42, 104, size),
 		still(a.text(104, func() string { return w.txt.reset().str("cells ").int(w.count).String() }, colMuted)),
 		still(a.text(104, func() string { return w.txt2.reset().str("step ").int(int(w.stepUS)).str(" us").String() }, colMuted)),
 	)
