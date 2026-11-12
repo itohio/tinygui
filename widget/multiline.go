@@ -117,7 +117,7 @@ func (m *MultilineBase) DrawAt(ctx ui.Context, start int) {
 			if idx < 0 {
 				break
 			}
-			tinyfont.WriteLine(ctx.D(), m.font, x, y+lineHeight, m.lines[idx], m.color)
+			ui.DrawText(ctx.D(), m.font, x, y+lineHeight, m.lines[idx], m.color)
 			y += lineHeight
 		}
 	default: // MultilineNewestOnBottom
@@ -126,7 +126,7 @@ func (m *MultilineBase) DrawAt(ctx ui.Context, start int) {
 			if idx >= total {
 				break
 			}
-			tinyfont.WriteLine(ctx.D(), m.font, x, y+lineHeight, m.lines[idx], m.color)
+			ui.DrawText(ctx.D(), m.font, x, y+lineHeight, m.lines[idx], m.color)
 			y += lineHeight
 		}
 	}

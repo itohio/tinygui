@@ -65,7 +65,7 @@ func (t *Toggle) Draw(ctx ui.Context) {
 	}
 
 	textY := y + int16(t.Height) - 2
-	tinyfont.WriteLine(d, t.font, x+2, textY, label, t.text)
+	ui.DrawText(d, t.font, x+2, textY, label, t.text)
 }
 
 func (t *Toggle) Interact(cmd ui.UserCommand) bool {

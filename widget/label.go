@@ -33,7 +33,7 @@ func NewLabel(w, h uint16, font tinyfont.Fonter, text func() string, color color
 
 func (l *Label) Draw(ctx ui.Context) {
 	x, y := ctx.DisplayPos()
-	tinyfont.WriteLine(ctx.D(), l.font, x, y+int16(l.Height), l.text(), l.color)
+	ui.DrawText(ctx.D(), l.font, x, y+int16(l.Height), l.text(), l.color)
 }
 
 // SetFont updates the font used to draw the label.
