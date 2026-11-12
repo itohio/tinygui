@@ -176,3 +176,21 @@ func (c *WidgetBase) Interact(cmd UserCommand) bool {
 	}
 	return true
 }
+
+// OverlayHost shows widgets on top of everything else (popups, dialogs,
+// dropdown lists). Widgets find the host by walking up their parents.
+// x, y are display coordinates.
+type OverlayHost interface {
+	Open(w Widget, x, y int16) bool
+	Close(w Widget)
+}
+
+// FindOverlayHost returns the nearest OverlayHost above w, or nil.
+func FindOverlayHost(w Widget) OverlayHost {
+	for p := w.Parent(); p != nil; p = p.Parent() {
+		if h, ok := p.(OverlayHost); ok {
+			return h
+		}
+	}
+	return nil
+}
