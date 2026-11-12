@@ -141,11 +141,11 @@ func (s *Scroll) drawVisible(viewportW, viewportH int16) {
 	}
 	localCtx := &s.contentOff
 	originX, originY := localCtx.Start()
-	for _, item := range s.Items {
+	for i, item := range s.Items {
 		itemW, itemH := item.Size()
 		displayX, displayY := localCtx.DisplayPos()
 		visible := intersectsRect(displayX, displayY, int16(itemW), int16(itemH), originX, originY, viewportW, viewportH)
-		s.setVisibility(item, visible)
+		s.setVisibility(i, item, visible)
 		if visible {
 			item.Draw(localCtx)
 		}

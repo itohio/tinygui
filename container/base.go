@@ -20,7 +20,10 @@ type Base[T ui.Widget] struct {
 
 	Timeout time.Duration
 	Items   []T
-	visible map[ui.Widget]bool
+	// visible[i] is whether Items[i] was visible at the last Draw (a slice,
+	// not a map keyed by widget: TinyGo hashes non-pointer interface keys by
+	// reflection and allocated on every lookup, every child, every frame)
+	visible []int8 // -1 not drawn yet, 0 hidden, 1 visible
 
 	paddingX int16
 	paddingY int16
@@ -122,7 +125,6 @@ func New[T ui.Widget](width, height uint16, opts ...Option[T]) *Base[T] {
 		lastTime:   time.Now(),
 		index:      -1,
 		Timeout:    10 * time.Second,
-		visible:    make(map[ui.Widget]bool),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -165,9 +167,9 @@ func (c *Base[T]) Draw(ctx ui.Context) {
 		return
 	}
 
-	for _, item := range c.Items {
+	for i, item := range c.Items {
 		visible := childVisible(localCtx, item)
-		c.setVisibility(item, visible)
+		c.setVisibility(i, item, visible)
 		if !visible {
 			if c.layouter != nil && !c.layouter(localCtx, item) {
 				return
@@ -194,7 +196,7 @@ func (c *Base[T]) drawArranged(ctx ui.Context, w, h int16) {
 	for i, item := range c.Items {
 		ctx.SetPos(ox+rects[i].X, oy+rects[i].Y)
 		visible := childVisible(ctx, item)
-		c.setVisibility(item, visible)
+		c.setVisibility(i, item, visible)
 		if visible {
 			item.Draw(ctx)
 		}
@@ -359,15 +361,23 @@ func (c *Base[T]) clampIndex(a int) int {
 	return a
 }
 
-func (c *Base[T]) setVisibility(item ui.Widget, visible bool) {
-	if c.visible == nil {
-		c.visible = make(map[ui.Widget]bool)
+// setVisibility records child i's visibility and tells the child when it
+// changes, or when it is first drawn.
+func (c *Base[T]) setVisibility(i int, item ui.Widget, visible bool) {
+	if len(c.visible) != len(c.Items) { // first draw, or Items changed
+		c.visible = make([]int8, len(c.Items))
+		for j := range c.visible {
+			c.visible[j] = -1
+		}
 	}
-	prev, ok := c.visible[item]
-	if ok && prev == visible {
+	v := int8(0)
+	if visible {
+		v = 1
+	}
+	if c.visible[i] == v {
 		return
 	}
-	c.visible[item] = visible
+	c.visible[i] = v
 	if handler, ok := item.(ui.VisibleHandler); ok {
 		handler.OnVisible(visible)
 	}
