@@ -119,21 +119,28 @@ func NewRandomContext(d drivers.Displayer, interval time.Duration, w, h uint16) 
 	}
 }
 
-func (c *RandomContext) Clone(widget Widget, w, h uint16) Context {
-	if time.Since(c.lastTime) > c.interval {
-		dx := int32(c.dW - int16(c.w))
-		dy := int32(c.dH - int16(c.h))
-		if dx <= 0 {
-			dx = 1
-		}
-		if dy <= 0 {
-			dy = 1
-		}
-
-		c.x = int16(rand.Int31n(dx))
-		c.y = int16(rand.Int31n(dy))
-		c.lastTime = time.Now()
+// Move shifts the origin to a new random place once interval has passed
+// since the last move. It doesn't allocate: call it once per frame and draw
+// through ChildContext(&c.ContextImpl, …) instead of Clone, which allocates
+// a context each call.
+func (c *RandomContext) Move() {
+	if time.Since(c.lastTime) <= c.interval {
+		return
 	}
+	dx := int32(c.dW - int16(c.w))
+	dy := int32(c.dH - int16(c.h))
+	if dx <= 0 {
+		dx = 1
+	}
+	if dy <= 0 {
+		dy = 1
+	}
+	c.x = int16(rand.Int31n(dx))
+	c.y = int16(rand.Int31n(dy))
+	c.lastTime = time.Now()
+}
 
+func (c *RandomContext) Clone(widget Widget, w, h uint16) Context {
+	c.Move()
 	return c.ContextImpl.Clone(widget, w, h)
 }
