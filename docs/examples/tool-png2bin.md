@@ -26,7 +26,7 @@ Output (`cmd/png2bin/png2bin.go:69-93`): `package icons`, constants `<Name>Width
 
 ## Behaviour
 
-- Colour conversion: `RGBATo565` keeps the top 5/6/5 bits of the 16-bit-per-channel `color.RGBA()` values (`:24-29`). Alpha is dropped, so transparent pixels become whatever colour the PNG stores under them (usually black).
+- Colour conversion: `RGBATo565` keeps the top 5/6/5 bits of the 16-bit-per-channel `color.RGBA()` values (`:24-29`). Alpha is dropped after `color.Color.RGBA()`, which returns alpha-premultiplied values, so fully transparent pixels become 0 (black) and semi-transparent ones are darkened.
 - Pixel order: row-major, `img.At(x, y)` for every pixel (`:62-67`).
 
 ## Status at `b140156`

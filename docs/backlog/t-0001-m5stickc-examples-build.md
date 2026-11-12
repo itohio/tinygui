@@ -65,7 +65,7 @@ Three errors appear one after another ([[baseline#TinyGo builds]]):
 
 | Option | Change | Result | Trade-off |
 |---|---|---|---|
-| B1 (recommended) | `examples/m5stick/cfg_m5stickc.go`: import the vendored `github.com/itohio/tinygui/examples/m5stick/st7735` (already in the repo, import commented out at `:8`), return `*st7735.Device` (`return &display`) | builds; full `ui.Displayer`, so `Bitmap16` icons draw | keeps a vendored driver copy; it allocates 4 slices per `setWindow` ([[findings]] F-21), same as upstream |
+| B1 (recommended) | `examples/m5stick/cfg_m5stickc.go`: import the vendored `github.com/itohio/tinygui/examples/m5stick/st7735` (already in the repo, import commented out at `:9`), return `*st7735.Device` (`return &display`) | builds; full `ui.Displayer`, so `Bitmap16` icons draw | keeps a vendored driver copy; it allocates 5 slices per `setWindow` ([[findings]] F-21), same as upstream |
 | B2 | keep upstream `drivers/st7735`; demos' `configureDisplay` returns `*st7735.Device` | builds | `Bitmap16`/`Icon` silently draw nothing (type assertion fails, `widget/bitmap.go:47-50`); the choice demo loses its icon picker |
 | B3 | change `ui.BitmapDisplayer` to the drivers' `DrawBitmap(x, y, pixel.Image[…])` API | builds against upstream, no vendored driver | API change for every display adapter; belongs in TG-1b's display-contract work, not a build fix |
 
@@ -78,7 +78,8 @@ Out of scope here (separate findings): panel geometry (F-02), layout overflow in
 - [ ] `GOTOOLCHAIN=local GOPROXY=off tinygo build -target=m5stick-c -tags=m5stickc -o /dev/null ./examples/choice` exits 0.
 - [ ] Same for `./examples/gauge`.
 - [ ] `GOTOOLCHAIN=local GOPROXY=off go test ./ ./container ./layout ./widget` passes.
-- [ ] `tinygo build -target=pico` of a program calling `ui.NewSerialReader(machine.Serial)` compiles (regression: the reader still accepts the machine type on a USB target).
+- [ ] Red first: a minimal program calling `ui.NewSerialReader(machine.Serial)` fails `tinygo build -target=m5stick-c` before Part A (`undefined: machine.Serialer`, reproduced by verify) and builds after it.
+- [ ] Regression (passes before and after): the same program builds for `-target=pico`, so the reader still accepts the machine type on a USB target.
 - [ ] [[examples]] and [[baseline]] show the new build status.
 
 ## Verification

@@ -17,6 +17,7 @@ Measurements and evaluations of TinyGUI. Home: [[index]].
 | Note | Content | Status |
 |---|---|---|
 | [[baseline]] | host tests, TinyGo builds, size, allocations, host probes at `b140156` | done (TG-1a) |
+| [[demo-benchmark-plan]] | measured push / simulation / render costs on the Tufty 2040, demo plan (Life, water, fire, ping-pong, boids), classic benchmarks, flash budget | measured 2026-11-12 |
 | [[findings]] | 27 defects and risks with evidence (F-22…F-27 from the Tufty demo) | done (TG-1a + demo) |
 | prior art, gap matrix vs LVGL and Fyne, performance, concurrency, usability, ranked proposals | | TG-1b, not started; UX-28 A1 (non-generic container entry points), A2 (button adapter + `nav.Handle`), A5 (`tinygui_debug` tag for silent failures) and its minors feed its proposals |
 

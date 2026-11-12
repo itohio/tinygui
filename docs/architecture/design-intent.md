@@ -54,7 +54,7 @@ TinyGUI is a minimal widget toolkit for TinyGo targets that emphasizes determini
 
 ## Drift from the code
 
-Claims of the former `DESIGN.md` that differ from `b140156`:
+Claims of the former `DESIGN.md` (and two doc comments) that differ from `b140156`:
 
 | Former claim | Code | Source |
 |---|---|---|
@@ -69,3 +69,10 @@ Claims of the former `DESIGN.md` that differ from `b140156`:
 | Watchdog abstraction "enabling button polling to keep watchdog timers alive" | ESP32 implementation is a no-op | `watchdog_esp32.go:5` |
 | Refers to `PLAN.md` | no such file in the repo | `git ls-files` |
 | `Log` and multiline labels "leverage `container.Scroll`" | they keep their own `viewStart` and do not use `Scroll` | `widget/multiline.go:212-226` |
+| `ExitHandler` "fires when the navigator exits an item" | called by containers from `SetActive` when the active child changes or is deactivated | `container/base.go:200-232` |
+| `CommandStreamMux` dispatches "without extra allocations" | `string(line)` builds the map key from the line | `mux.go:90-93` |
+| `PeekButton` long presses map to `LONG_*` | `PeekButton` returns a duration; nothing maps it to `LONG_*` | `ui.go:12-20` |
+| interactive widgets "accept getter/setter callbacks" | only `Toggle` does; the others bind pointers | `widget/toggle.go:24`, `widget/interactive_options.go:35-44` |
+| `Base` emits `ScrollHandler` | only `Scroll` does | `container/scroll.go:77-86` |
+| "Focus management is container-centric; nested containers require manual orchestration" | the `Navigator` keeps a stack of `Navigable` containers and descends with `Enter` | `navigator.go:40-55`, `:121-144` |
+| `layout` package doc: strategies respect `Marginer`/`Padder` | no strategy reads them | `layout/layout.go:1-6`, `:14-151` |

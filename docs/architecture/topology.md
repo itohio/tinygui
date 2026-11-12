@@ -19,7 +19,7 @@ Packages, build tags, external modules and the drivers TinyGUI binds to, at `b14
 
 ## Package dependency graph
 
-Arrows point from importer to imported package (non-test imports, from `grep` of import lines; command in [[baseline]]).
+Arrows point from importer to imported package (non-test imports at `b140156`, read from every package's import blocks).
 
 ```mermaid
 flowchart BT
@@ -36,14 +36,23 @@ flowchart BT
   i2c["examples/m5stick/i2c (unused)"]
   st["examples/m5stick/st7735 (vendored driver, unused)"]
   mlx["examples/m5stick/mlx90614 (unused)"]
-  ui --> drivers["tinygo.org/x/drivers"]
+  i2cscan["cmd/i2cscan"]
+  png2bin["cmd/png2bin (stdlib only)"]
+  ui --> drivers["tinygo.org/x/drivers (+ image/png)"]
+  ui --> machine["machine / device (TinyGo)"]
   widget --> drivers
   widget --> tinyfont["tinygo.org/x/tinyfont"]
-  m5stick --> drivers
+  choice --> tinyfont & machine
+  gauge --> tinyfont & machine
+  m5stick --> drivers & machine
+  st --> drivers & machine
+  i2c --> machine
+  mlx --> drivers
+  i2cscan --> drivers & machine
 ```
 
 - `container` depends on `widget` only for `ScrollChoice` (`container/choice.go:6`); everything else in `container` needs only `ui` and `layout`.
-- `examples/m5stick/{i2c,st7735,mlx90614}` are not imported by anything: `cfg_m5stickc.go` uses the upstream `drivers/i2csoft` and `drivers/st7735` and leaves the vendored import commented out (`examples/m5stick/cfg_m5stickc.go:8-12`).
+- `examples/m5stick/{i2c,st7735,mlx90614}` are not imported by anything: `cfg_m5stickc.go` uses the upstream `drivers/i2csoft` and `drivers/st7735` and leaves the vendored import commented out (`examples/m5stick/cfg_m5stickc.go:9-12`).
 
 ## External modules (`go.mod`)
 

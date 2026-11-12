@@ -17,7 +17,7 @@ From physical buttons to focus moves and value edits. Part of [[guides]]. Refere
 
 ## The two modes
 
-TinyGUI keeps two pieces of state per container: which child is **focused** (`Index()`) and whether that child is **active**, i.e. being edited (`Active()`). Your input code decides what a button means in each mode:
+TinyGUI keeps two pieces of state per container: which child is **focused** (`Index()`) and whether that child is **active**, i.e. being edited (`Active()`). `nav.Enter()` on a leaf widget activates it by calling `SetActive` on the **container** that holds it (`navigator.go:126`), so "editing" is read from the parent: `root.Active()`. Your input code decides what a button means in each mode:
 
 | Button | Browsing (`!root.Active()`) | Editing (`root.Active()`) |
 |---|---|---|
@@ -51,6 +51,8 @@ func handle(nav *ui.Navigator, root *container.Base[ui.Widget], b button) {
 			nav.Next()
 		case ok:
 			nav.Enter()
+		case back:
+			nav.Back()
 		}
 		return
 	}
@@ -84,6 +86,6 @@ func handle(nav *ui.Navigator, root *container.Base[ui.Widget], b button) {
 
 - After `nav.Back()` the container clears its focus (`SetActive(-1)` → `SetIndex(-1)`), hence the `nav.Focus(row)`.
 - Nested containers (a `ScrollChoice` list inside a page): `nav.Enter()` on a container pushes it on the navigator stack instead of activating it; `nav.Depth()` tells you which happened ([[example-tufty2040]] list page).
-- The container's idle timeout (default 10 s) only counts `Interact` calls; focus moved purely through the navigator is cleared after the timeout even while buttons are being pressed ([[findings]] F-24). Workaround: call `root.Interact(ui.USER)` on every press, or `container.WithTimeout` with a long value.
+- The container's idle timeout (default 10 s) only fires when you call `root.Interact(ui.IDLE)` (e.g. once per frame, `container/base.go:157-158`, `:260-265`); nothing calls it for you. It counts only `Interact` calls as activity, so focus moved purely through the navigator is cleared after the timeout even while buttons are being pressed ([[findings]] F-24). Workaround: call `root.Interact(ui.USER)` on every press, or `container.WithTimeout` with a long value.
 - `ScrollChoice` change callbacks don't fire for navigator moves ([[findings]] F-23); read `list.Index()` instead.
 - This glue is the same in every app; a library adapter (`ui.Buttons` + `nav.Handle(cmd)`) is proposed for TG-1b (UX-28 A2).

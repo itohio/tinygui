@@ -65,7 +65,7 @@ TinyGUI packages have 0 B rodata/data/bss in every build. `fmt` + `strconv` + `i
 | choice | 42 | 37 | 2 | 3 |
 | gauge | 38 | 34 | 2 | 2 |
 | probe | 10 | 8 | 1 | 1 |
-| choice, vendored driver | 50 | 41 | 6 (+4 in `setWindow`, per draw primitive) | 3 |
+| choice, vendored driver | 50 | 40 | 7 (+5 in `setWindow`: `st7735.go:222-225` and `Command` at `:416`, per draw primitive) | 3 |
 
 Site list and classification: [[memory-and-buffers#Heap allocations]].
 
@@ -81,6 +81,7 @@ TestAllocsPerFrameGaugeOnly         1.0 allocs/frame  Base{Gauge}
 TestAllocsInteractiveLabelDraw      1.0 unselected, 6.0 selected per Draw
 TestAllocsNavigatorEvent            0.0 without observers, 2.0 with one observer per Next+Prev
 TestLogAppendAllocs                 2.0 per Append at capacity 16
+TestGridPaddingDropsChild          Grid(0,0), width 25, padding 5, three 10x10 children: drawn at [5 0], [15 0], third never drawn
 TestGaugeExampleVerticalBudget     gauge-demo root geometry with boxes: readouts at [10 10], zones at [10 90], status and summary never drawn;
                                     longest summary line 212 px in TomThumb (tinyfont.LineWidth)
 ```

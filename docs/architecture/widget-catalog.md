@@ -30,12 +30,14 @@ Every widget and container at `b140156`. Part of [[architecture]]. "Binding" = h
 | `SolidGauge[T]` | `widget/volume_gauge.go:35-131` | `*T` | none | two `fillRect` | `volume_gauge_test.go` |
 | `Bitmap16` / `Bitmap8` | `widget/bitmap.go:32-97` | caller-owned `[]uint16` / `[]uint8`, not copied | none | `DrawRGBBitmap` / `DrawRGBBitmap8`; silently draws nothing if the displayer lacks it or the slice is short (`:47-55`) | `bitmap_test.go` |
 | `Icon` | `widget/icon.go:8-55` | `func() string` holding PNG bytes | none | `DrawPng` decodes the PNG on every draw into a shared 1.5 KB line buffer (`drawing.go:52-76`) | via interactive |
+| `BitmapBase[T]` | `widget/bitmap.go:8-29` | shared base of `Bitmap16`/`Bitmap8`: size + caller-owned pixel slice | none | — (embedded, no `Draw`) | via bitmaps |
+| `HorizontalGauge`, `VerticalGauge` (+ `Multi…`, `…InteractiveGauge` variants) | `widget/gauge.go:35-38`, `:148-149`; `widget/interactive_gauge.go:48-51`, `:240-243` | type aliases of the generic gauges, kept for compatibility; orientation comes from the geometry | — | — | — |
 
 ## Interactive widgets
 
 | Widget | Source | Edits | Commands | Commit model |
 |---|---|---|---|---|
-| `Toggle` | `widget/toggle.go:11-79` | `getter/setter func(bool)` | `ENTER/LEFT/RIGHT` flip immediately | immediate; draws background + label via `FillRectangle` |
+| `Toggle` | `widget/toggle.go:11-79` | `getter/setter func(bool)` (the only widget with getter/setter callbacks) | `ENTER/LEFT/RIGHT` flip immediately | immediate; background via `FillRectangle`, label via `tinyfont.WriteLine` (`:59-68`) |
 | `InteractiveLabel[T]` | `widget/interactive_label.go:11-191` | `*T` via `WithValue` | `UP/NEXT ±small`, `LONG_UP/RIGHT ±large`, `ENTER` commit, `ESC/BACK` revert | pending copy; text via `fmt.Sprintf("%v")` and `"▲ "+text+" ▼"` while selected (`:149-155`) |
 | `InteractiveGauge[T]` | `widget/interactive_gauge.go:10-195` | `*T` | as label | pending copy drawn by the embedded `Gauge` |
 | `InteractiveMultiGauge[T]` | `widget/interactive_gauge.go:198-412` | `*[]T`, max 4 segments (`widget/numeric.go:20`) | `UP/DOWN` value, `LEFT/RIGHT` segment, `ENTER` next segment then commit | fixed arrays `[4]T` for pending/original (`:209-210`) |
@@ -44,6 +46,8 @@ Every widget and container at `b140156`. Part of [[architecture]]. "Binding" = h
 | `InteractiveLabelChoice` | `widget/interactive_choice.go:11-132` | `[]string` | selector | label text replaced on change |
 | `InteractiveIconChoice` | `widget/interactive_icon_choice.go:6-101` | `[]string` PNGs | selector | icon image replaced on change |
 | `InteractiveWidgetChoice[T]` | `widget/interactive_widget_choice.go:12-187` | `[]T` widgets | selector, else forwards to current child | draws only the current child |
+| `InteractiveMultiline` | `widget/multiline.go:212-290` | `SetLines([]string)` | `UP/NEXT` older, `DOWN/PREV` newer, `LONG_UP/DOWN` by a page | scrolls a view; no commit |
+| `InteractiveLog` | `widget/multiline.go:293-368` | `Append(string)` (capacity-capped `Log`) | as `InteractiveMultiline` | follows the newest line unless scrolled |
 
 Options: interactive numeric widgets share `InteractiveOption[T]` (`widget/interactive_options.go:10-194`), a struct of three per-type closures. Unsupported combinations are silently ignored (e.g. `WithFormatter` on a gauge has no `applyGauge`, `:101-107`).
 
@@ -51,9 +55,12 @@ Options: interactive numeric widgets share `InteractiveOption[T]` (`widget/inter
 
 | Container | Source | Behaviour |
 |---|---|---|
-| `Base[T]` | `container/base.go:11-341` | child slice, layout strategy, padding/margin, selection/activation, idle timeout, visibility map (`map[ui.Widget]bool`, `:20`) |
+| `Base[T]` | `container/base.go` | child slice, layout strategy, padding/margin, selection/activation, idle timeout, child visibility in a `[]int8` by index (was a map hashed by reflection on TinyGo, F-38) |
 | `Scroll` | `container/scroll.go:9-171` | `Base[ui.Widget]` + offsets; content size measured once at construction (`:88-98`); draws only intersecting children (`:121-142`); observers |
-| `ScrollChoice` | `container/choice.go:41-181` | `Scroll` + `InteractiveSelector`; keeps the focused child visible by re-measuring the layout from the first child (`:165-181`) |
+| `ScrollObserver` / `ScrollChange` | `container/events.go:5-16` | observer interface and event (offset delta + absolute offset) that `Scroll` sends to registered observers; only `Scroll` emits scroll events (also to children implementing `ui.ScrollHandler`) |
+| `ScrollChoice` | `container/choice.go` | `Scroll` + `InteractiveSelector`; keeps the focused child visible by re-measuring the layout from the first child with a cursor it keeps (F-41) |
+| `Pages` | `container/pages.go` | one page of many shown; pages built on demand from `PageSpec{Name, Build}`, at most `Keep` built (least recently shown released, `OnRelease`), bounded `History` for `Back`; no allocation after construction |
+| `Overlay` | `container/overlay.go` | up to `MaxOverlays` (4) modal layers (popups, dialogs, dropdown lists) over a base |
 
 ## Layouts
 

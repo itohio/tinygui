@@ -31,8 +31,8 @@ As-is description of TinyGUI at `b140156` (module `github.com/itohio/tinygui`, G
 | `ui` (root) | `*.go` | core interfaces (`Widget`, `Context`, `Navigable`, `Container`, capability interfaces), `WidgetBase`, contexts, drawing helpers, `Navigator`, `CommandStreamMux`, `SerialReader`, button/duration helpers, watchdog shims |
 | `widget` | `widget/` | concrete widgets: text, gauges, bitmaps/icons, toggle, separator, multiline/log, interactive editors and selectors |
 | `container` | `container/` | `Base[T]` (child list, selection, activation, idle timeout, visibility events), `Scroll`, `ScrollChoice` |
-| `layout` | `layout/` | `Strategy` closures that advance a `Context` position between children: `HList`, `VList`, `Grid`, `HFlow`, `VFlow` |
-| `animation` | `animation/` | `Animator` interface, linear and quadratic easing over `float32` channels; not used by any widget (no importer in the repo) |
+| `layout` | `layout/` | `Strategy` closures that advance a `Context` position between children: `HList`, `VList`, `Grid`, `HFlow`, `VFlow`; `Arranger`s that place all children at once: `Row`/`Column` (weights, alignment), `Wrap`, `Table`, `Anchor` ([[layouts-and-overlays]]) |
+| `animation` | `animation/` | `Animator` interface, linear, quadratic ease-in/ease-out and smoothstep (cubic) ease-in-out over `float32` channels (`animation/ease.go:10-41`); not used by any widget (no importer in the repo) |
 | examples | `examples/` | M5StickC demos and board support: [[examples]] |
 | tools | `cmd/` | `i2cscan` (TinyGo), `png2bin` (host): [[examples]] |
 

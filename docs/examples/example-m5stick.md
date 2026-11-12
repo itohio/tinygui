@@ -24,10 +24,10 @@ Shared board package for the demos, not a runnable example. Part of [[examples]]
 | `InitPower()` | `:37-43` | soft-I2C on the internal bus, AXP192 LDO2 on (panel backlight) |
 | `NewDisplay()` | `:46-65` | `machine.SPI3` at 32 MHz, ST7735 `MINI80x160`, 80×160, column offset 26, row offset 1, `ROTATION_270`; sleeps 1 s before init; returns `st7735.Device` **by value** |
 | `i2c/` | `examples/m5stick/i2c/` | vendored soft-I2C with an ESP32 `nop` delay loop; unused |
-| `st7735/` | `examples/m5stick/st7735/` | vendored, non-generic ST7735 driver that implements the full `ui.Displayer` (incl. `DrawRGBBitmap([]uint16)`, `:316`); unused (import commented out at `cfg_m5stickc.go:8`) |
+| `st7735/` | `examples/m5stick/st7735/` | vendored, non-generic ST7735 driver that implements the full `ui.Displayer` (incl. `DrawRGBBitmap([]uint16)`, `:316`); unused (import commented out at `cfg_m5stickc.go:9`) |
 | `mlx90614/` | `examples/m5stick/mlx90614/` | IR thermometer driver; unused |
 
-Build constraint `tinygo || m5stickc` (`cfg_m5stickc.go:1`), so it compiles for every TinyGo target, not only the StickC.
+Build constraint `tinygo || m5stickc` (`cfg_m5stickc.go:1`): the file is included for every TinyGo target, but it compiles only for ESP32 targets because it names ESP32 pins (`tinygo build -target=pico` of an importer: `cfg_m5stickc.go:16:23: undefined: machine.IO10`).
 
 ## Hardware facts to confirm on the device
 

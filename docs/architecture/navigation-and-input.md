@@ -32,12 +32,16 @@ flowchart TD
 
 ### Navigator (`navigator.go`)
 
-- Holds a stack of `Navigable`, root first (`navigator.go:40-55`); `NewNavigator(nil)` panics (`:47-49`).
+- Holds a fixed stack of up to `MaxNavDepth` (8) `Navigable`, root first; `NewNavigator(nil)` panics. `Enter` into a container deeper than that is refused (returns false).
 - `Next/Prev` move to the next selectable child of the top container, skipping widgets whose `CanSelect()` or `Enabled()` is false (`:77-99`, `:269-322`). No wrap-around: at the ends they return false.
 - `Enter` selects the first selectable child if none, activates it, and pushes it when it is itself `Navigable` (descending into a sub-container); otherwise emits `Activated` (`:121-144`).
 - `Back` deactivates the top container; if it was not active, pops one level (`:147-164`). The root is never popped.
-- Observers get `FocusChanged`, `Activated`, `Deactivated` with the full `Path` (`:20-38`, `:254-265`). Each notification builds a fresh `Path` slice (`:167-182`), so observers cost one allocation per event (host measurement in [[baseline]]).
-- `Walk` traverses the whole tree depth-first and copies the path at every node (`:185-227`).
+- Observers get `FocusChanged`, `Activated`, `Deactivated` with the `Path`. `Path()` and the events' `Path` are the navigator's own buffer, valid until the next navigation: navigating never allocates (`TestNavigatorNavigatesWithoutAllocating`; the old fresh slice per event was 22 allocations for a short focus/enter/back sequence).
+- `Walk` traverses the whole tree depth-first with paths built in a fixed buffer (valid during the callback); containers nested deeper than `MaxNavDepth` are not descended into.
+
+### Pages (`container/pages.go`)
+
+An app with many pages hands them to `container.Pages` as `PageSpec{Name, Build}`: a page is built the first time it is shown, at most `PagesConfig.Keep` stay built (the least recently shown is released, `OnRelease` lets the app drop its references), and `Back` returns through a bounded `History` of the pages shown before, rebuilding released ones. Show, Back and Draw allocate nothing in `Pages`; building is the page's own work. State that must outlive a page (sensor history, logs, simulations) belongs in models the builders reference, not in the page. Tests: `TestPagesBuildLazilyAndKeepABoundedNumber`, `TestPagesBackThroughABoundedHistory`, `TestPagesNavigateWithoutAllocating`. The Tufty showcase keeps 3 of 14 pages built: live heap after GC 127–129 KB → 100 KB on the badge.
 
 ### Container activation (`container/base.go`)
 

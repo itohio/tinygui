@@ -19,10 +19,11 @@ Demos and tools at `b140156`. Build status measured on 2026-11-10 with TinyGo 0.
 |---|---|---|---|---|
 | [[example-choice]] | `examples/choice` | demo | `m5stick-c`, tag `m5stickc` | **no** ([[t-0001-m5stickc-examples-build]]) |
 | [[example-gauge]] | `examples/gauge` | demo | `m5stick-c`, tag `m5stickc` | **no** ([[t-0001-m5stickc-examples-build]]) |
-| [[example-m5stick]] | `examples/m5stick` | board package | any TinyGo target | via the demos |
+| [[example-m5stick]] | `examples/m5stick` | board package | ESP32 targets (names ESP32 pins; fails on `pico`) | via the demos |
 | [[tool-i2cscan]] | `cmd/i2cscan` | MCU tool | MCU families in its tag list | yes (`m5stick-c`) |
 | [[tool-png2bin]] | `cmd/png2bin` | host tool | host | yes; not run (no PNG in the repo) |
 | [[example-tufty2040]] | `examples/tufty2040` | showcase demo + host simulator | `tufty2040` (Pimoroni Tufty 2040), host sim | yes (2026-11-12, uncommitted); not yet run on the device |
+| [[tufty2040-commands]] | `examples/tufty2040` | command set (serial + buttons) | `tufty2040` | — |
 | — | `examples/framebuffer` | RGB565 RAM display | any | yes (used by the Tufty demo and its simulator) |
 
 ## Build commands
