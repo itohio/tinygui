@@ -43,6 +43,7 @@ type ScrollChoice struct {
 	selector *widget.InteractiveSelector[ui.Widget]
 	config   scrollChoiceConfig
 	enabled  bool
+	measured ui.ContextImpl // measure's layout cursor, reused (the layouter keeps a pointer to it)
 }
 
 // NewScrollChoice constructs a scrollable choice container.
@@ -163,8 +164,8 @@ type childRect struct {
 }
 
 func (c *ScrollChoice) measure(target int) (childRect, bool) {
-	base := ui.NewContext(nil, 0x7fff, 0x7fff, 0, 0)
-	ctx := &base
+	c.measured = ui.NewContext(nil, 0x7fff, 0x7fff, 0, 0)
+	ctx := &c.measured
 	ctx.SetPos(c.paddingX, c.paddingY)
 
 	for i, child := range c.Items {
