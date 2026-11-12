@@ -77,6 +77,23 @@ func (p *Pages) Page(i int) ui.Widget { return p.built[i] }
 // Built is how many pages are built now (at most Keep).
 func (p *Pages) Built() int { return len(p.recent) }
 
+// BuildAll builds every page now (call it in setup, with Keep at least the
+// page count): showing pages later builds and allocates nothing. Pages
+// that are already built stay as they are; nothing is shown.
+func (p *Pages) BuildAll() {
+	if cap(p.recent) < len(p.specs) {
+		panic("container.Pages.BuildAll: Keep is smaller than the page count")
+	}
+	for i := range p.specs {
+		if p.built[i] == nil {
+			w := p.specs[i].Build()
+			w.SetParent(p)
+			p.built[i] = w
+			p.recent = append(p.recent, i) // within cap: no allocation
+		}
+	}
+}
+
 // Show shows page i, building it if needed, and records the page shown
 // before in the history. It returns the page.
 func (p *Pages) Show(i int) ui.Widget {

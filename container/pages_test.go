@@ -115,3 +115,32 @@ func TestPagesNavigateWithoutAllocating(t *testing.T) {
 	require.Zero(t, allocs)
 	require.Equal(t, []int{1, 1, 1}, f.builds)
 }
+
+// BuildAll builds every page up front (in setup): showing pages afterwards,
+// back and forth, builds nothing again, releases nothing and allocates
+// nothing (owner: no allocations after setup).
+func TestPagesBuildAllUpFront(t *testing.T) {
+	f := newPagesFixture(5, 5, 4)
+	p := f.pages
+	p.BuildAll()
+	require.Equal(t, []int{1, 1, 1, 1, 1}, f.builds)
+	require.Equal(t, 5, p.Built())
+	require.Equal(t, -1, p.Index(), "nothing shown yet")
+	walk := func() {
+		for i := range 5 {
+			p.Show(i)
+		}
+		p.Back()
+		p.Back()
+	}
+	walk()
+	require.Equal(t, []int{1, 1, 1, 1, 1}, f.builds)
+	require.Empty(t, f.released)
+	require.Zero(t, testing.AllocsPerRun(20, walk))
+}
+
+// BuildAll with Keep smaller than the page count would build pages only to
+// release them: it panics instead (a setup mistake).
+func TestPagesBuildAllNeedsRoomForEveryPage(t *testing.T) {
+	require.Panics(t, func() { newPagesFixture(5, 3, 4).pages.BuildAll() })
+}
