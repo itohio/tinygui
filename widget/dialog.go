@@ -72,7 +72,10 @@ func NewDialog(style OverlayStyle, title string, lines, options []string, onChoo
 // Selected option index.
 func (d *Dialog) Choice() int { return d.sel }
 
+// close leaves the overlay and resets the selection, so a dialog kept and
+// opened again starts at its first option (no allocation per opening).
 func (d *Dialog) close() {
+	d.sel = 0
 	if h := ui.FindOverlayHost(d); h != nil {
 		h.Close(d)
 	}
@@ -85,13 +88,14 @@ func (d *Dialog) Interact(cmd ui.UserCommand) bool {
 	case ui.DOWN, ui.RIGHT, ui.NEXT:
 		d.sel = min(d.sel+1, max(len(d.options)-1, 0))
 	case ui.ENTER:
+		sel := d.sel
 		d.close()
 		if len(d.options) == 0 {
 			if d.onCancel != nil {
 				d.onCancel()
 			}
 		} else if d.onChoose != nil {
-			d.onChoose(d.sel)
+			d.onChoose(sel)
 		}
 	case ui.ESC, ui.BACK:
 		d.close()

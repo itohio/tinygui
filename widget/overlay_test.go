@@ -199,3 +199,22 @@ func TestDropdownListStaysOnScreen(t *testing.T) {
 	}
 	require.True(t, found, "list background drawn")
 }
+
+// A dialog kept and opened again (no allocation per opening) starts at its
+// first option each time, whatever was chosen or cancelled last time.
+func TestReopenedDialogStartsAtTheFirstOption(t *testing.T) {
+	o, _, _ := newHost()
+	var chosen []int
+	d := widget.NewDialog(style, "Demos", nil, []string{"Pause", "Reset", "About", "Close"}, func(i int) { chosen = append(chosen, i) }, nil)
+	o.OpenCentered(d)
+	o.Interact(ui.DOWN)
+	o.Interact(ui.DOWN)
+	o.Interact(ui.ENTER)
+	o.OpenCentered(d)
+	o.Interact(ui.DOWN)
+	o.Interact(ui.BACK)
+	o.OpenCentered(d)
+	require.Equal(t, 0, d.Choice())
+	o.Interact(ui.ENTER)
+	require.Equal(t, []int{2, 0}, chosen)
+}
