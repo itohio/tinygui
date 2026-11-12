@@ -162,6 +162,11 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 		speedMS:      1500,
 		cmds:         make(chan command, 16),
 	}
+	if _, usb := hw.Battery(); usb {
+		// on USB the badge is usually on the desk under the camera: full
+		// backlight is DC, no PWM to beat with the camera's rolling shutter
+		a.backlight = 100
+	}
 	a.restartCurves()
 	demos := []*page{a.pageLife(), a.pageWater(), a.pageFire(), a.pagePong(), a.pageBoids()}
 	a.picturesPage = a.pagePictures()

@@ -12,7 +12,7 @@ import (
 // badge implements app.Hardware on the Tufty 2040.
 type badge struct {
 	light, vbat, vref machine.ADC
-	led, backlight    pwmOut
+	led, backlight    *pwmOut
 }
 
 type pwmOut struct {
@@ -22,7 +22,9 @@ type pwmOut struct {
 		Set(channel uint8, value uint32)
 		Top() uint32
 	}
-	ch uint8
+	pin machine.Pin
+	ch  uint8
+	dc  bool // the pin is a plain output (100 %), not PWM
 }
 
 func newPWM(p interface {
@@ -30,19 +32,28 @@ func newPWM(p interface {
 	Channel(machine.Pin) (uint8, error)
 	Set(channel uint8, value uint32)
 	Top() uint32
-}, pin machine.Pin) pwmOut {
-	_ = p.Configure(machine.PWMConfig{Period: 50_000}) // 20 kHz
+}, pin machine.Pin) *pwmOut {
+	// 200 kHz: well above a camera's rolling-shutter row rate, so photos of the
+	// screen show no stripes at partial brightness (20 kHz did); 1 000 levels
+	// at 200 MHz.
+	_ = p.Configure(machine.PWMConfig{Period: 5_000})
 	ch, _ := p.Channel(pin)
-	return pwmOut{pwm: p, ch: ch}
+	return &pwmOut{pwm: p, pin: pin, ch: ch}
 }
 
-// set applies a perceptual (squared) duty cycle.
-func (o pwmOut) set(percent int) {
-	if percent < 0 {
-		percent = 0
+// set applies a perceptual (squared) duty cycle. 100 % drives the pin high
+// with no PWM at all (DC), the camera-friendly setting.
+func (o *pwmOut) set(percent int) {
+	percent = min(max(percent, 0), 100)
+	if percent == 100 {
+		o.pin.Configure(machine.PinConfig{Mode: machine.PinOutput})
+		o.pin.High()
+		o.dc = true
+		return
 	}
-	if percent > 100 {
-		percent = 100
+	if o.dc { // back to PWM: Channel gives the pin to the PWM block again
+		o.ch, _ = o.pwm.Channel(o.pin)
+		o.dc = false
 	}
 	top := o.pwm.Top()
 	o.pwm.Set(o.ch, uint32(uint64(top)*uint64(percent*percent)/10000))
