@@ -120,3 +120,64 @@ func TestCellGridSkipsRowsOutsideClip(t *testing.T) {
 	require.Equal(t, lit, c.at(19, 21))
 	require.Equal(t, color.RGBA{}, c.at(0, 30), "rows outside the clip are not drawn")
 }
+
+// canvas565 stores RGB565 and takes bitmaps, so CellGrid uses its strip path.
+type canvas565 struct {
+	*canvas
+	bits []uint16
+}
+
+func (c *canvas565) SetPixel(x, y int16, col color.RGBA) {
+	if x >= 0 && y >= 0 && x < c.w && y < c.h {
+		c.bits[int(y)*int(c.w)+int(x)] = rgb565(col)
+	}
+}
+func (c *canvas565) FillRectangle(x, y, w, h int16, col color.RGBA) error {
+	for j := y; j < y+h; j++ {
+		for i := x; i < x+w; i++ {
+			c.SetPixel(i, j, col)
+		}
+	}
+	return nil
+}
+func (c *canvas565) DrawRGBBitmap(x, y int16, data []uint16, w, h int16) error {
+	for j := range h {
+		for i := range w {
+			if x+i >= 0 && y+j >= 0 && x+i < c.w && y+j < c.h {
+				c.bits[int(y+j)*int(c.w)+int(x+i)] = data[int(j)*int(w)+int(i)]
+			}
+		}
+	}
+	return nil
+}
+func (c *canvas565) DrawRGBBitmap8(int16, int16, []uint8, int16, int16) error { return nil }
+
+// The RGB565 strip path draws exactly the pixels of the rectangle path, for
+// round and square cells, with and without gaps.
+func TestCellGridStripsMatchRectangles(t *testing.T) {
+	pal := []color.RGBA{dim, lit, {10, 200, 90, 255}}
+	cells := []uint8{0, 1, 2, 9, 2, 1, 1, 0, 2, 0, 0, 1}
+	for _, tc := range []struct {
+		pitch, gap uint8
+		shape      CellShape
+	}{{5, 1, CellRound}, {4, 1, CellRound}, {3, 1, CellRound}, {5, 2, CellSquare}, {3, 0, CellSquare}} {
+		g := NewCellGrid(4, 3, tc.pitch, tc.gap, tc.shape, cells, pal, off)
+		ref := newCanvas(30, 20)
+		fast := &canvas565{canvas: newCanvas(30, 20), bits: make([]uint16, 30*20)}
+		for i := range ref.px {
+			ref.px[i] = back
+			fast.bits[i] = rgb565(back)
+		}
+		rctx := ui.NewContext(ref, 30, 20, 2, 3)
+		fctx := ui.NewContext(fast, 30, 20, 2, 3)
+		g.Draw(&rctx)
+		g.Draw(&fctx)
+		for i := range ref.px {
+			require.Equalf(t, rgb565(ref.px[i]), fast.bits[i], "pitch %d gap %d shape %d pixel (%d,%d)",
+				tc.pitch, tc.gap, tc.shape, i%30, i/30)
+		}
+		if n := testing.AllocsPerRun(10, func() { g.Draw(&fctx) }); n != 0 {
+			t.Fatalf("strip Draw allocates %.0f times", n)
+		}
+	}
+}
