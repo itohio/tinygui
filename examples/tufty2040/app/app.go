@@ -6,6 +6,7 @@
 package app
 
 import (
+	"image/color"
 	"time"
 	"unsafe"
 
@@ -97,6 +98,7 @@ type App struct {
 	pngIdx, pngChoiceIdx   int
 	bitmapIdx              int
 	menu                   *menu
+	solid                  int // grey level of a uniform test screen, -1: off
 	overlay                *container.Overlay
 	picturesPage           *page
 	full                   *widget.CellGrid // a demo drawn full screen instead of the UI
@@ -161,6 +163,7 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 		mix:          []float32{20, 30, 25},
 		speedMS:      1500,
 		cmds:         make(chan command, 16),
+		solid:        -1,
 	}
 	if _, usb := hw.Battery(); usb {
 		// on USB the badge is usually on the desk under the camera: full
@@ -281,6 +284,11 @@ func (a *App) Update(now time.Time) {
 // banded framebuffer the board calls Draw once per band; Draw must then paint
 // the same frame every time, so all per-frame state changes live in Update.
 func (a *App) Draw() {
+	if a.solid >= 0 { // `solid <level>`: the whole screen one grey, nothing else
+		v := uint8(a.solid)
+		a.d.FillScreen(color.RGBA{v, v, v, 255})
+		return
+	}
 	a.d.FillScreen(colBG)
 	if a.saver {
 		a.saverW.Draw(a.saverPos)

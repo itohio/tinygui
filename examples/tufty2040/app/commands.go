@@ -16,12 +16,12 @@ type command struct {
 	long   bool
 }
 
-const helpText = "commands: up|down|a|b|c [long], user <ms>, page <n>, led <0-100>, bl <10-100>, saver [0|1], stats, tiles, dump, help"
+const helpText = "commands: up|down|a|b|c [long], user <ms>, page <n>, led <0-100>, bl <10-100>, saver [0|1], solid [0-255], stats, tiles, dump, help"
 
 // Handlers returns the command table for ui.NewCommandStreamMux.
 func (a *App) Handlers() map[string]func([]byte) {
 	m := map[string]func([]byte){}
-	for _, name := range []string{"up", "down", "a", "b", "c", "user", "page", "led", "bl", "saver", "stats", "tiles", "dump", "help"} {
+	for _, name := range []string{"up", "down", "a", "b", "c", "user", "page", "led", "bl", "saver", "solid", "stats", "tiles", "dump", "help"} {
 		m[name] = func(arg []byte) { a.Command(name, string(arg)) }
 	}
 	return m
@@ -66,6 +66,11 @@ func (a *App) exec(c command) {
 			a.saver = c.arg != 0
 		} else {
 			a.saver = !a.saver
+		}
+	case "solid": // a uniform grey screen for camera tests; no argument: back to the UI
+		a.solid = -1
+		if c.hasArg {
+			a.solid = clampi(c.arg, 0, 255)
 		}
 	case "dump":
 		a.dumpReq = true
