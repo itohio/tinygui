@@ -1,4 +1,27 @@
-# Animation Package Design
+---
+aliases:
+  - "Animation design"
+  - "animation/DESIGN.md"
+tags:
+  - tinygui
+  - architecture
+  - animation
+type: reference
+created: 2025-11-12
+updated: 2026-11-10
+revision: b140156
+---
+
+# Animation package design
+
+Folded from `animation/DESIGN.md` on 2026-11-10; text below the status block is the author's design, unchanged. Part of [[architecture]].
+
+> [!note] Status at `b140156`
+> - Built: `Animator` (`animation/animator.go:4-10`), `NewLinear` (`animation/linear.go:14-16`), `NewEaseIn/EaseOut/EaseInOut` (`animation/ease.go:10-41`).
+> - Not built: `NewJump`, `Duration()`, the shared `base`/`fraction` struct (the code embeds `linear` in `easingAnimator` and duplicates the progress logic, `animation/ease.go:43-78` vs `animation/linear.go:31-65`).
+> - Signature drift: the code is `Update(dst []float32, nowUnixMicro int64)`; the sketch below and the usage pattern write `Update(now, dst)`.
+> - Constructors return `&linear{…}` / `&easingAnimator{…}` (one heap allocation each, construction time only); `NewEase*` also stores a closure.
+> - No widget imports `animation`; it is unused at runtime. It computes in `float32` (hardware FPU on ESP32, software float on Cortex-M0+ RP2040).
 
 ## Motivation
 Interactive widgets like choice selectors benefit from smooth animated transitions. A dedicated animation package lets components opt into reusable motion behaviours (instant jumps, linear interpolation, easing) without embedding animation logic per widget. Because this project targets embedded systems, the design must avoid heap allocations and keep the API minimal.
