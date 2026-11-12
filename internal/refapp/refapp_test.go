@@ -193,4 +193,16 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 	if n := testing.AllocsPerRun(50, func() { log.Append("a log line") }); n != 0 {
 		t.Errorf("Log.Append: %.0f allocations", n)
 	}
+	// a screensaver: a RandomContext moved every frame, its text drawn through
+	// a reused child context (verify H-2: Clone allocated per frame)
+	fb, _ := display()
+	saver := ui.NewRandomContext(fb, 0, 100, 12)
+	text := widget.NewLabel(100, 12, font, func() string { return "saver" }, fg)
+	var sctx ui.ContextImpl
+	if n := testing.AllocsPerRun(50, func() {
+		saver.Move()
+		text.Draw(ui.ChildContext(&saver.ContextImpl, &sctx, text, 100, 12))
+	}); n != 0 {
+		t.Errorf("screensaver: %.0f allocations per frame", n)
+	}
 }
