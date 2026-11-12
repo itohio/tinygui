@@ -2,6 +2,7 @@ package refapp
 
 import (
 	"image/color"
+	"io"
 	"runtime"
 	"testing"
 
@@ -204,5 +205,39 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		text.Draw(ui.ChildContext(&saver.ContextImpl, &sctx, text, 100, 12))
 	}); n != 0 {
 		t.Errorf("screensaver: %.0f allocations per frame", n)
+	}
+}
+
+// console is a reader replaying command lines, then io.EOF.
+type console struct {
+	s string
+	i int
+}
+
+func (c *console) Read(b []byte) (int, error) {
+	if c.i >= len(c.s) {
+		return 0, io.EOF
+	}
+	n := copy(b, c.s[c.i:])
+	c.i += n
+	return n, nil
+}
+
+// The serial command mux reads and dispatches lines without allocating
+// (it converted every line to a string for the lookup).
+func TestCommandMuxDispatchesWithoutAllocating(t *testing.T) {
+	var got, arg int
+	r := &console{s: "up\nbl 40\r\nstats\nnope x\n\n"}
+	m := ui.NewCommandStreamMux(r, map[string]func([]byte){
+		"up": func([]byte) { got++ }, "stats": func([]byte) { got++ },
+		"bl": func(a []byte) { got++; arg = len(a) },
+	})
+	run := func() { r.i = 0; _ = m.Run() }
+	run()
+	if got != 3 || arg != 2 {
+		t.Fatalf("dispatched %d commands (bl arg length %d), want 3 (2)", got, arg)
+	}
+	if n := testing.AllocsPerRun(50, run); n != 0 {
+		t.Errorf("command mux: %.0f allocations per 5 lines", n)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"runtime"
+	"unsafe"
 )
 
 // CommandStreamMux reads line-based commands from an io.Reader and dispatches
@@ -80,24 +81,18 @@ func (m *CommandStreamMux) processLine(line []byte) {
 	}
 
 	// Find the command/argument separator (space)
-	idx := bytes.IndexByte(line, ' ')
-
-	var cmd string
+	end := bytes.IndexByte(line, ' ')
 	var arg []byte
-
-	if idx == -1 {
-		// No space found, the whole line is the command
-		cmd = string(line)
-	} else {
-		// Split into command and argument
-		cmd = string(line[:idx])
-		if idx+1 < len(line) {
-			arg = line[idx+1:]
-		}
+	if end == -1 {
+		end = len(line) // no space: the whole line is the command
+	} else if end+1 < len(line) {
+		arg = line[end+1:]
 	}
 
-	// Execute the command function if it exists
-	if fn, exists := m.c[cmd]; exists {
+	// The key is a view of the line, not a copy: a lookup never keeps its
+	// key, and string(line) allocated a string per line under TinyGo (which
+	// doesn't elide the copy even inside the index expression).
+	if fn, exists := m.c[unsafe.String(&line[0], end)]; exists {
 		fn(arg)
 	}
 }
