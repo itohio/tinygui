@@ -26,7 +26,9 @@ const (
 	NavigatorEventDeactivated
 )
 
-// NavigatorEvent encapsulates navigation changes for observers.
+// NavigatorEvent encapsulates navigation changes for observers. Path is
+// the navigator's own buffer: valid during the callback, overwritten by the
+// next navigation (copy it to keep it).
 type NavigatorEvent struct {
 	Type NavigatorEventType
 	Path Path
@@ -37,8 +39,16 @@ type NavigatorObserver interface {
 	OnNavigatorEvent(NavigatorEvent)
 }
 
+// MaxNavDepth bounds how many navigable containers a Navigator stacks: Enter
+// into a container deeper than this is refused. The stack and the paths it
+// reports live in fixed arrays, so navigating never allocates.
+const MaxNavDepth = 8
+
 type Navigator struct {
-	stack     []Navigable
+	stack     [MaxNavDepth]Navigable
+	depth     int
+	path      [MaxNavDepth + 1]PathSegment // Path's and Walk's buffer
+	walk      [2*MaxNavDepth + 2]PathSegment
 	observers []NavigatorObserver
 }
 
@@ -47,11 +57,9 @@ func NewNavigator(root Navigable) *Navigator {
 	if root == nil {
 		panic("navigator requires root container")
 	}
-	return &Navigator{
-		stack: []Navigable{
-			root,
-		},
-	}
+	n := &Navigator{depth: 1}
+	n.stack[0] = root
+	return n
 }
 
 func (n *Navigator) AddObserver(obs NavigatorObserver) {
@@ -60,7 +68,7 @@ func (n *Navigator) AddObserver(obs NavigatorObserver) {
 
 // Depth reports how many navigable containers are currently on the stack.
 func (n *Navigator) Depth() int {
-	return len(n.stack)
+	return n.depth
 }
 
 // Current yields the currently focused widget or the active container when no
@@ -117,7 +125,8 @@ func (n *Navigator) Focus(index int) bool {
 }
 
 // Enter activates the selected widget. Navigable children are pushed onto the
-// stack, other widgets receive activation events.
+// stack (refused, returning false, at MaxNavDepth), other widgets receive
+// activation events.
 func (n *Navigator) Enter() bool {
 	if !n.ensureSelection() {
 		return false
@@ -129,7 +138,11 @@ func (n *Navigator) Enter() bool {
 		return false
 	}
 	if child, ok := item.(Navigable); ok {
-		n.stack = append(n.stack, child)
+		if n.depth == MaxNavDepth {
+			return false
+		}
+		n.stack[n.depth] = child
+		n.depth++
 		if child.Index() < 0 && child.ChildCount() > 0 {
 			if first := n.findSelectable(child, 0, 1); first >= 0 {
 				child.SetIndex(first)
@@ -145,9 +158,6 @@ func (n *Navigator) Enter() bool {
 
 // Back deactivates the current widget and unwinds to the parent when possible.
 func (n *Navigator) Back() bool {
-	if len(n.stack) == 0 {
-		return false
-	}
 	container := n.currentContainer()
 	wasActive := container.Active()
 	container.SetActive(-1)
@@ -155,18 +165,20 @@ func (n *Navigator) Back() bool {
 	if wasActive {
 		return true
 	}
-	if len(n.stack) == 1 {
+	if n.depth == 1 {
 		return true
 	}
-	n.stack = n.stack[:len(n.stack)-1]
+	n.depth--
+	n.stack[n.depth] = nil
 	n.notify(NavigatorEventFocusChanged)
 	return true
 }
 
-// Path returns the navigation stack and current item as a Path.
+// Path returns the navigation stack and current item as a Path: the
+// navigator's own buffer, valid until the next navigation (no allocation).
 func (n *Navigator) Path() Path {
-	path := make(Path, 0, len(n.stack)+1)
-	for _, container := range n.stack {
+	path := n.path[:0]
+	for _, container := range n.stack[:n.depth] {
 		path = append(path, PathSegment{
 			Widget: container,
 			Index:  container.Index(),
@@ -181,18 +193,17 @@ func (n *Navigator) Path() Path {
 	return path
 }
 
-// Walk traverses the entire navigable hierarchy depth-first invoking fn.
+// Walk traverses the entire navigable hierarchy depth-first invoking fn with
+// the path to each node (the navigator's buffer, valid during the call).
+// Containers deeper than MaxNavDepth are not descended into.
 func (n *Navigator) Walk(fn func(Path) bool) {
-	if len(n.stack) == 0 {
-		return
-	}
-	walkContainer(n.stack[0], nil, fn)
+	n.walkContainer(n.stack[0], n.walk[:0], fn)
 }
 
-// walkContainer traverses container depth-first, building paths and invoking fn
-// at each node. Returning false aborts traversal.
-func walkContainer(container Navigable, path Path, fn func(Path) bool) bool {
-	currentPath := appendPath(path, PathSegment{
+// walkContainer traverses container depth-first, building paths in the
+// fixed buffer and invoking fn at each node. Returning false aborts traversal.
+func (n *Navigator) walkContainer(container Navigable, path Path, fn func(Path) bool) bool {
+	currentPath := append(path, PathSegment{
 		Widget: container,
 		Index:  container.Index(),
 	})
@@ -204,26 +215,20 @@ func walkContainer(container Navigable, path Path, fn func(Path) bool) bool {
 		if w == nil {
 			continue
 		}
-		childPath := appendPath(currentPath, PathSegment{
+		childPath := append(currentPath, PathSegment{
 			Widget: w,
 			Index:  i,
 		})
 		if !fn(childPath) {
 			return false
 		}
-		if child, ok := w.(Navigable); ok {
-			if !walkContainer(child, childPath, fn) {
+		if child, ok := w.(Navigable); ok && len(childPath) < cap(n.walk)-1 {
+			if !n.walkContainer(child, childPath, fn) {
 				return false
 			}
 		}
 	}
 	return true
-}
-
-// appendPath produces a new Path containing segment appended to path.
-func appendPath(path Path, segment PathSegment) Path {
-	next := append(Path(nil), path...)
-	return append(next, segment)
 }
 
 // ensureSelection guarantees that the current container points at a selectable
@@ -247,7 +252,7 @@ func (n *Navigator) ensureSelection() bool {
 
 // currentContainer returns the Navigable instance at the top of the stack.
 func (n *Navigator) currentContainer() Navigable {
-	return n.stack[len(n.stack)-1]
+	return n.stack[n.depth-1]
 }
 
 // notify emits a NavigatorEvent of type t to every observer.

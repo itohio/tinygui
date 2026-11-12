@@ -189,3 +189,62 @@ func TestNavigatorSkipsNonSelectableWidgets(t *testing.T) {
 	require.False(t, nav.Prev())
 	require.True(t, dynamic.focused)
 }
+
+type countObserver struct{ n int }
+
+func (c *countObserver) OnNavigatorEvent(e ui.NavigatorEvent) {
+	if e.Path.Current() != nil {
+		c.n++
+	}
+}
+
+// Navigating (focus, enter, back) with an observer attached allocates
+// nothing: the stack and the reported paths live in fixed buffers.
+func TestNavigatorNavigatesWithoutAllocating(t *testing.T) {
+	inner := container.New[ui.Widget](0, 0,
+		container.WithLayout[ui.Widget](layout.VList(0)),
+		container.WithChildren[ui.Widget](newEventWidget(), newEventWidget()),
+	)
+	root := container.New[ui.Widget](0, 0,
+		container.WithLayout[ui.Widget](layout.VList(0)),
+		container.WithChildren[ui.Widget](newEventWidget(), inner, newEventWidget()),
+	)
+	nav := ui.NewNavigator(root)
+	obs := &countObserver{}
+	nav.AddObserver(obs)
+	nav.Focus(0)
+	allocs := testing.AllocsPerRun(50, func() {
+		nav.Next() // onto the inner container
+		nav.Enter()
+		nav.Next()
+		nav.Prev()
+		nav.Back()
+		nav.Back()
+		nav.Prev()
+		_ = nav.Path()
+		nav.Walk(func(ui.Path) bool { return true })
+	})
+	require.Zero(t, allocs)
+	require.Positive(t, obs.n)
+}
+
+// The stack is bounded: entering containers nested deeper than MaxNavDepth
+// is refused, and Back unwinds to the root.
+func TestNavigatorStackIsBounded(t *testing.T) {
+	var w ui.Widget = newEventWidget()
+	for range ui.MaxNavDepth + 2 {
+		w = container.New[ui.Widget](0, 0,
+			container.WithLayout[ui.Widget](layout.VList(0)),
+			container.WithChildren[ui.Widget](w),
+		)
+	}
+	nav := ui.NewNavigator(w.(ui.Navigable))
+	for nav.Enter() {
+	}
+	require.Equal(t, ui.MaxNavDepth, nav.Depth())
+	for range ui.MaxNavDepth {
+		nav.Back()
+		nav.Back()
+	}
+	require.Equal(t, 1, nav.Depth())
+}
