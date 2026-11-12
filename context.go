@@ -81,6 +81,22 @@ func (c *ContextImpl) Clone(widget Widget, W, H uint16) Context {
 	return &ret
 }
 
+// ChildContext returns what parent.Clone(widget, W, H) returns, but when
+// parent is a plain *ContextImpl it fills and returns dst instead of
+// allocating. Containers keep dst between frames, so drawing a tree costs no
+// allocation per container per frame (per band, with a banded framebuffer).
+// Other context types (scroll offsets, RandomContext) keep their own Clone.
+func ChildContext(parent Context, dst *ContextImpl, widget Widget, W, H uint16) Context {
+	p, ok := parent.(*ContextImpl)
+	if !ok {
+		return parent.Clone(widget, W, H)
+	}
+	x, y := p.DisplayPos()
+	*dst = NewContext(p.d, W, H, x, y)
+	dst.widget = widget
+	return dst
+}
+
 // RandomContext implements randomly shifting context.
 // It is especially useful for OLED displays to prevent burn-in.
 type RandomContext struct {

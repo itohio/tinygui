@@ -40,3 +40,19 @@ func TestArrangerMeasuresAZeroSizedContainer(t *testing.T) {
 	w, h := c.Size()
 	require.Equal(t, [2]uint16{30 + 6, 17 + 2}, [2]uint16{w, h})
 }
+
+// Drawing a container tree into a plain context allocates nothing: children
+// get a context the container keeps (ui.ChildContext), for Base and Scroll.
+func TestDrawingContainersDoesNotAllocate(t *testing.T) {
+	inner := New[ui.Widget](50, 20, WithLayout[ui.Widget](layout.HList(2)),
+		WithChildren[ui.Widget](newDummyWidget(10, 10)))
+	scroll := NewScroll(60, 20, layout.VList(1), newDummyWidget(10, 30))
+	root := New[ui.Widget](100, 60,
+		WithArranger[ui.Widget](layout.Column(2, layout.Start, layout.Start)),
+		WithChildren[ui.Widget](inner, scroll))
+	ctx := ui.NewContext(nil, 100, 60, 0, 0)
+	root.Draw(&ctx)
+	if n := testing.AllocsPerRun(20, func() { root.Draw(&ctx) }); n > 0 {
+		t.Fatalf("%.0f allocations per draw", n)
+	}
+}

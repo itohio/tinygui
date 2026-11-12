@@ -14,6 +14,10 @@ type Scroll struct {
 	contentW  uint16
 	contentH  uint16
 	observers []ScrollObserver
+
+	// contexts reused every Draw (ui.ChildContext): no allocation per frame
+	view, content       ui.ContextImpl
+	viewOff, contentOff offsetContext
 }
 
 // NewScroll returns a scroll-enabled container sized by viewportW/H.
@@ -65,13 +69,12 @@ func (s *Scroll) AddObserver(observer ScrollObserver) {
 // Draw renders only children that intersect the visible area.
 func (s *Scroll) Draw(ctx ui.Context) {
 	w, h := s.Size()
-	base := ctx.Clone(s, w, h)
-	offsetCtx := &offsetContext{
-		Context: base,
+	s.viewOff = offsetContext{
+		Context: ui.ChildContext(ctx, &s.view, s, w, h),
 		dx:      s.offsetX,
 		dy:      s.offsetY,
 	}
-	s.drawVisible(offsetCtx, int16(w), int16(h))
+	s.drawVisible(int16(w), int16(h))
 }
 
 func (s *Scroll) notify(change ScrollChange) {
@@ -118,7 +121,7 @@ func (s *Scroll) maxOffsetY() int16 {
 	return int16(s.contentH - viewportH)
 }
 
-func (s *Scroll) drawVisible(ctx ui.Context, viewportW, viewportH int16) {
+func (s *Scroll) drawVisible(viewportW, viewportH int16) {
 	// Children are laid out in content space (offsetContext shifts them on
 	// screen), so the layout context must span the content, not the viewport:
 	// layouts stop at the context bounds. Visibility is still tested against
@@ -130,7 +133,13 @@ func (s *Scroll) drawVisible(ctx ui.Context, viewportW, viewportH int16) {
 	if layoutH < uint16(viewportH) {
 		layoutH = uint16(viewportH)
 	}
-	localCtx := ctx.Clone(s, layoutW, layoutH)
+	// what s.viewOff.Clone would return, built in place
+	s.contentOff = offsetContext{
+		Context: ui.ChildContext(s.viewOff.Context, &s.content, s, layoutW, layoutH),
+		dx:      s.viewOff.dx,
+		dy:      s.viewOff.dy,
+	}
+	localCtx := &s.contentOff
 	originX, originY := localCtx.Start()
 	for _, item := range s.Items {
 		itemW, itemH := item.Size()

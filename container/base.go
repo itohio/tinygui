@@ -12,7 +12,8 @@ type Base[T ui.Widget] struct {
 	ui.WidgetBase
 	layouter layout.Strategy
 	arranger layout.Arranger
-	rects    []layout.Rect // arranger output, reused
+	rects    []layout.Rect  // arranger output, reused
+	ctx      ui.ContextImpl // children's context, reused every Draw
 	lastTime time.Time
 	index    int
 	active   bool
@@ -157,7 +158,7 @@ func (c *Base[T]) Draw(ctx ui.Context) {
 	if innerH < 0 {
 		innerH = 0
 	}
-	localCtx := ctx.Clone(c, uint16(innerW), uint16(innerH))
+	localCtx := ui.ChildContext(ctx, &c.ctx, c, uint16(innerW), uint16(innerH))
 	localCtx.SetPos(c.marginX+c.paddingX, c.marginY+c.paddingY)
 	if c.arranger != nil {
 		c.drawArranged(localCtx, innerW-2*c.paddingX, innerH-2*c.paddingY)

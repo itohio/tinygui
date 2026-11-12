@@ -15,6 +15,7 @@ type InteractiveWidgetChoice[T ui.Widget] struct {
 	selector     *InteractiveSelector[T]
 	config       widgetChoiceConfig[T]
 	currentIndex int
+	ctx          ui.ContextImpl // the child's context, reused every Draw
 }
 
 // InteractiveWidgetChoiceOption configures widget choices.
@@ -91,8 +92,7 @@ func (c *InteractiveWidgetChoice[T]) Draw(ctx ui.Context) {
 		return
 	}
 	w, h := widget.Size()
-	childCtx := ctx.Clone(widget, w, h)
-	widget.Draw(childCtx)
+	widget.Draw(ui.ChildContext(ctx, &c.ctx, widget, w, h))
 }
 
 // Interact processes navigation commands or delegates to the active child.
