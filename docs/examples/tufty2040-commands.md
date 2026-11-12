@@ -51,7 +51,7 @@ Same meaning on every page (owner 2026-11-12: "up and down … A, B, and C … s
 | `stats` | log `fps`, `draw_us`, `push_us`, page, edit state; `heap_alloc`, `heap_sys`, `mallocs`, `gc` | — | |
 | `solid [0-255]` | the whole screen one grey level (255 white) for camera tests; no argument returns to the UI | — | |
 | `tiles` | frame budget of each Demos tile: `tile <name> tick_us <µs> draw_us <µs>` (draw summed over the three bands) | — | |
-| `dump` | send the framebuffer: line `FB 320 240`, 153 600 bytes big-endian RGB565 (both bands), line `END` | — | what was drawn, not what the glass shows |
+| `dump` | send the framebuffer: line `FB 320 240`, 153 600 bytes big-endian RGB565 (all three bands), line `END` | — | what was drawn, not what the glass shows |
 | `help` | list the commands | — | |
 | `madctl <n>` | write the panel's MADCTL register (orientation probe; default 176 = `0xB0`) | — | firmware only (`main_tufty2040.go`) |
 | `pins` | print raw button levels and VBUS | — | firmware only |
