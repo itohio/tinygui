@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"fmt"
 	"image/color"
 	"testing"
 
@@ -77,4 +78,31 @@ func TestInteractiveLabelFollowsItsBoundValue(t *testing.T) {
 	label.Interact(ui.UP)
 	value = 30 // changed elsewhere mid-edit: the edit wins on screen
 	require.Contains(t, label.displayText(), "65")
+}
+
+// The label formats its number like fmt's %v, marks it while selected, and
+// does so without allocating (it is drawn every frame; fmt.Sprintf and the
+// marker concatenation allocated per draw).
+func TestInteractiveLabelTextWithoutAllocating(t *testing.T) {
+	f := float32(-2.5)
+	n := 1234
+	u := uint8(200)
+	fl := NewInteractiveLabel[float32](80, 11, WithValue(&f), WithRange[float32](-12, 12))
+	il := NewInteractiveLabel[int](80, 11, WithValue(&n), WithRange(0, 5000))
+	ul := NewInteractiveLabel[uint8](80, 11, WithValue(&u), WithRange[uint8](0, 255))
+	for _, c := range []struct {
+		got  func() string
+		want string
+	}{
+		{fl.displayText, fmt.Sprintf("%v", f)},
+		{il.displayText, fmt.Sprintf("%v", n)},
+		{ul.displayText, fmt.Sprintf("%v", u)},
+	} {
+		require.Equal(t, c.want, c.got())
+	}
+	f = 0.1
+	require.Equal(t, fmt.Sprintf("%v", f), fl.displayText(), "float32 shortest form, as fmt prints it")
+	fl.SetSelected(true)
+	require.Equal(t, "▲ "+fmt.Sprintf("%v", f)+" ▼", fl.displayText())
+	require.Zero(t, testing.AllocsPerRun(100, func() { _ = fl.displayText(); _ = il.displayText() }))
 }

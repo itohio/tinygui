@@ -1,8 +1,9 @@
 package widget
 
 import (
-	"fmt"
 	"image/color"
+	"strconv"
+	"unsafe"
 
 	ui "github.com/itohio/tinygui"
 )
@@ -17,8 +18,9 @@ type InteractiveLabel[T Number] struct {
 	stepSmall T
 	stepLarge T
 
-	formatter func(T) string
+	formatter func(T) string // nil: the number as fmt's %v would print it
 	onCommit  func(T)
+	text      [40]byte // the shown text, rebuilt per draw without allocating
 	enabled   bool
 
 	pending   T
@@ -34,7 +36,6 @@ func NewInteractiveLabel[T Number](width, height uint16, opts ...InteractiveOpti
 		stepSmall: 1,
 		stepLarge: 1,
 		enabled:   true,
-		formatter: func(v T) string { return fmt.Sprintf("%v", v) },
 	}
 
 	label := NewLabel(width, height, nil, nil, color.RGBA{})
@@ -59,9 +60,6 @@ func (l *InteractiveLabel[T]) resetDefaults() {
 	}
 	if l.min > l.max {
 		l.min, l.max = l.max, l.min
-	}
-	if l.formatter == nil {
-		l.formatter = func(v T) string { return fmt.Sprintf("%v", v) }
 	}
 }
 
@@ -153,11 +151,44 @@ func (l *InteractiveLabel[T]) displayText() string {
 		// else changed it (it was loaded only when editing began)
 		v = clamp(l.min, l.max, *l.external)
 	}
-	text := l.formatter(v)
-	if l.enabled && l.Selected() {
-		return "▲ " + text + " ▼"
+	b := l.text[:0]
+	marked := l.enabled && l.Selected()
+	if marked {
+		b = append(b, "▲ "...)
 	}
-	return text
+	if l.formatter != nil {
+		b = append(b, l.formatter(v)...)
+	} else {
+		b = appendNumber(b, v)
+	}
+	if marked {
+		b = append(b, " ▼"...)
+	}
+	if len(b) == 0 {
+		return ""
+	}
+	// a view of l.text, drawn at once (Label reads it during Draw)
+	return unsafe.String(&b[0], len(b))
+}
+
+// appendNumber appends v as fmt's %v prints it, without fmt and without
+// converting v to an interface (which heap-allocates a float64 on 32-bit
+// TinyGo targets).
+func appendNumber[T Number](b []byte, v T) []byte {
+	var half T = 1
+	half /= 2
+	switch {
+	case half != 0: // a float type
+		bits := 64
+		if unsafe.Sizeof(v) == 4 {
+			bits = 32
+		}
+		return strconv.AppendFloat(b, float64(v), 'g', -1, bits)
+	case v < 0:
+		return strconv.AppendInt(b, int64(v), 10)
+	default:
+		return strconv.AppendUint(b, uint64(v), 10)
+	}
 }
 
 func (l *InteractiveLabel[T]) load() {
