@@ -1,7 +1,7 @@
 ---
 aliases:
   - "Tufty 2040 showcase"
-  - "examples/tufty2040"
+  - "tinytufty2040"
 tags:
   - tinygui
   - examples
@@ -12,20 +12,20 @@ updated: 2026-11-12
 revision: b140156+wip
 ---
 
-# examples/tufty2040 — showcase on the Pimoroni Tufty 2040
+# tinytufty2040 — showcase on the Pimoroni Tufty 2040
 
-A seven-page demo of everything TinyGUI has at `b140156`, written for the owner's Tufty 2040 badge (owner request 2026-11-10). Part of [[examples]]. Scope rules: [[0001-library-scope-and-layers]].
+A demo of TinyGUI on the owner's Tufty 2040 badge (owner request 2026-11-10). It began as `examples/tufty2040` here and moved to its own repo, `github.com/itohio/tinytufty2040` (owner 2026-11-12), which imports tinygui (and `examples/framebuffer`, `examples/choice/icons`); paths below are in that repo, and its `docs/` is the current reference. Part of [[examples]]. Scope rules: [[0001-library-scope-and-layers]].
 
 ## Layout of the code
 
 | Path | Build | Role |
 |---|---|---|
-| `examples/tufty2040/app/` | any | the whole UI, TinyGUI only: pages, theme, example widgets, input mapping, serial commands; no `machine` import |
-| `examples/tufty2040/main_tufty2040.go` | `tufty2040` | firmware: frame loop, buttons, USER via `ui.PeekButton`, USB-serial console via `ui.CommandStreamMux` + `ui.SerialReader`, framebuffer dump |
-| `examples/tufty2040/board/` | `tufty2040` | `board.LCD`: ST7789 320×240 on the 8-bit parallel bus, bit-banged via RP2040 SIO; init and orientation from Pimoroni's driver; write timing sized for the 200 MHz CPU clock (83 ns per byte, ST7789 needs ≥ 66 ns) |
-| `examples/tufty2040/bringup/` | `tufty2040` | bring-up firmware without TinyGUI: LED heartbeat, backlight, panel init, full-screen colour cycle, serial log with heap state |
-| `examples/tufty2040/badge_tufty2040.go` | `tufty2040` | light sensor, battery (1.24 V reference), VBUS, user LED and backlight PWM, button debouncing/auto-repeat |
-| `examples/tufty2040/sim/` | host (`!tinygo`) | simulator: same `app`, fake hardware, scripted button presses, PNG screenshots |
+| `tinytufty2040/app/` | any | the whole UI, TinyGUI only: pages, theme, example widgets, input mapping, serial commands; no `machine` import |
+| `tinytufty2040/main_tufty2040.go` | `tufty2040` | firmware: frame loop, buttons, USER via `ui.PeekButton`, USB-serial console via `ui.CommandStreamMux` + `ui.SerialReader`, framebuffer dump |
+| `tinytufty2040/board/` | `tufty2040` | `board.LCD`: ST7789 320×240 on the 8-bit parallel bus, bit-banged via RP2040 SIO; init and orientation from Pimoroni's driver; write timing sized for the 200 MHz CPU clock (83 ns per byte, ST7789 needs ≥ 66 ns) |
+| `tinytufty2040/bringup/` | `tufty2040` | bring-up firmware without TinyGUI: LED heartbeat, backlight, panel init, full-screen colour cycle, serial log with heap state |
+| `tinytufty2040/badge_tufty2040.go` | `tufty2040` | light sensor, battery (1.24 V reference), VBUS, user LED and backlight PWM, button debouncing/auto-repeat |
+| `tinytufty2040/sim/` | host (`!tinygo`) | simulator: same `app`, fake hardware, scripted button presses, PNG screenshots |
 | `examples/framebuffer/` | any | RGB565 RAM framebuffer implementing the full `ui.Displayer`; boards push it, the simulator encodes it |
 
 The firmware draws each frame in three 80-row bands into a 51 200 B RAM buffer (`framebuffer.NewBand`) and pushes each band in one burst, so the panel never shows the clear-then-draw sequence ([[findings]] F-06 avoided in the example, not fixed in the library). A full 153 600 B frame buffer ran the heap out of memory on the badge; two 120-row bands still did once the heap fragmented ([[findings]] F-30, F-31). Commands from USB serial and from the buttons share one channel: [[tufty2040-commands]].
@@ -73,9 +73,9 @@ Serial console and buttons share one command channel; the full command set, the 
 
 ```sh
 cd .
-GOTOOLCHAIN=local GOPROXY=off go run ./examples/tufty2040/sim -out /tmp/tufty           # 13 PNGs of a scripted tour
-GOTOOLCHAIN=local GOPROXY=off tinygo build -target=tufty2040 -size short -o tufty.uf2 ./examples/tufty2040
-GOTOOLCHAIN=local GOPROXY=off tinygo flash -target=tufty2040 ./examples/tufty2040        # owner only
+GOTOOLCHAIN=local GOPROXY=off go run ./tinytufty2040/sim -out /tmp/tufty           # 13 PNGs of a scripted tour
+GOTOOLCHAIN=local GOPROXY=off tinygo build -target=tufty2040 -size short -o tufty.uf2 ./tinytufty2040
+GOTOOLCHAIN=local GOPROXY=off tinygo flash -target=tufty2040 ./tinytufty2040        # owner only
 ```
 
 Flashing replaces the badge's MicroPython firmware: hold BOOT/USER, press RESET, copy `tufty.uf2` to the `RPI-RP2` drive (or `tinygo flash` with the board in bootloader mode). Restoring MicroPython needs Pimoroni's Tufty UF2.

@@ -22,7 +22,7 @@ Part of [[decisions]].
 
 ## Consequences
 
-- Board code (pins, panel drivers, buttons, ADC, PWM) lives under `examples/`. The Tufty 2040 demo follows this: `examples/tufty2040/app` uses only TinyGUI; board files carry `//go:build tufty2040` ([[example-tufty2040]]).
+- Board code (pins, panel drivers, buttons, ADC, PWM) lives under `examples/`. The Tufty 2040 demo follows this: `tinytufty2040/app` uses only TinyGUI; board files carry `//go:build tufty2040` ([[example-tufty2040]]).
 - Gaps against this decision at `b140156` (input to TG-1b):
   - `widget` imports `tinygo.org/x/tinyfont` directly (`widget/label.go:7`, `toggle.go`, `multiline.go`, `interactive_choice.go`, `interactive_options.go`): text widgets are tied to one font library.
   - `ui` imports `machine` in `ui.go` (`PeekButton`), `serial_reader.go`, `watchdog_rp2040.go`: board code inside the library, gated by hand-written chip lists ([[topology#Build tags and per-target files]]).

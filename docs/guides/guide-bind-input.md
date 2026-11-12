@@ -78,9 +78,9 @@ func handle(nav *ui.Navigator, root *container.Base[ui.Widget], b button) {
 
 ## Reading the buttons
 
-- **Debounce and long press** in board code: fire navigation keys on press with auto-repeat while held, fire ok/back on release with "held ≥ 500 ms = long" (`examples/tufty2040/badge_tufty2040.go`, `button.poll`). Long presses map to `ui.LONG_UP`/`LONG_DOWN`, which numeric editors use for the large step.
+- **Debounce and long press** in board code: fire navigation keys on press with auto-repeat while held, fire ok/back on release with "held ≥ 500 ms = long" (`tinytufty2040/badge_tufty2040.go`, `button.poll`). Long presses map to `ui.LONG_UP`/`LONG_DOWN`, which numeric editors use for the large step.
 - **`ui.PeekButton(pin)`** blocks until release and returns the hold time; fine for a rare button (the Tufty demo uses it for USER → screensaver), wrong for navigation keys because the loop stops while the button is down.
-- **Serial or scripted input**: `ui.NewCommandStreamMux(reader, map[string]func([]byte))` dispatches text lines. Run it in its own goroutine and only *queue* commands from the handlers; apply them in the UI loop, so the widget tree is touched by one goroutine ([[concurrency]]; `examples/tufty2040/app/commands.go`). Wrap `ui.SerialReader` so it sleeps when nothing is buffered, otherwise the mux goroutine spins (`idleReader` in `examples/tufty2040/main_tufty2040.go`).
+- **Serial or scripted input**: `ui.NewCommandStreamMux(reader, map[string]func([]byte))` dispatches text lines. Run it in its own goroutine and only *queue* commands from the handlers; apply them in the UI loop, so the widget tree is touched by one goroutine ([[concurrency]]; `tinytufty2040/app/commands.go`). Wrap `ui.SerialReader` so it sleeps when nothing is buffered, otherwise the mux goroutine spins (`idleReader` in `tinytufty2040/main_tufty2040.go`).
 
 ## Watch out for
 

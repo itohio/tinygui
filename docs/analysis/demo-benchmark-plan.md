@@ -20,7 +20,7 @@ What the Tufty 2040 can draw with TinyGo, measured, and the demos the owner aske
 
 Flash the badge → drive it over USB serial (`badgectl`, [[tufty2040-commands]]) → capture with the badge cam (esp32cam's camclient snapshot, or `grab`, both with the owner's `tmp/badgecam/settings.json` once he has saved it) → compare with the host simulator and the framebuffer dump → improve → evidence per round in `docs/evidence/`. Each demo lands as small commits that build, pass their tests and were seen on the badge.
 
-## Measured (2026-11-12, `examples/tufty2040/bench`)
+## Measured (2026-11-12, `tinytufty2040/bench`)
 
 RP2040 at 200 MHz (`machine.CPUFrequency`), ST7789 on the bit-banged 8-bit parallel bus (83 ns per byte), TinyGo 0.43. Each number is the mean over 20 steps (simulations) or one call (pushes); console log in `docs/evidence/TG-1-bench.txt`.
 

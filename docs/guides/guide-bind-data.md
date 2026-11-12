@@ -29,14 +29,14 @@ Selectors (`InteractiveLabelChoice`, `InteractiveIconChoice`, `InteractiveWidget
 
 - **The bound pointer is the source of truth.** Use change/commit callbacks for side effects (switch an LED, restart an animation), not to copy the value somewhere else (UX-28 A4).
 - **One goroutine owns the values the UI reads.** Sensors running in other goroutines hand values over (a channel or a queue drained in the UI loop), as the Tufty demo does for serial commands ([[concurrency]]).
-- **Sample slow sources on a timer**, not inside a closure that runs every frame (`App.Update` in `examples/tufty2040/app/app.go` reads the ADCs every `samplePeriod`).
+- **Sample slow sources on a timer**, not inside a closure that runs every frame (`App.Update` in `tinytufty2040/app/app.go` reads the ADCs every `samplePeriod`).
 
 ## Text without allocating
 
 A label closure runs every frame, so `fmt.Sprintf` there allocates every frame and links ≈ 34 KB of `fmt`/`strconv` ([[findings]] F-26). Format into a fixed buffer owned by the widget's data instead:
 
 ```go
-var buf textBuf // examples/tufty2040/app/text.go: fixed [48]byte, int/fixed/pad2 writers
+var buf textBuf // tinytufty2040/app/text.go: fixed [48]byte, int/fixed/pad2 writers
 label := widget.NewLabel(170, 11, font, func() string {
 	return buf.reset().str("Battery ").fixed(vbat, 2).str(" V").String()
 }, fg)

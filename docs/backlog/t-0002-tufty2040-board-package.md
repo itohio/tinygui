@@ -34,7 +34,7 @@ Owner request 2026-11-10 (direct): "a demo for this board that showcases all fea
 
 ## Acceptance criteria
 
-- [x] `examples/tufty2040` builds for `-target=tufty2040` (223 064 B flash / 219 424 B RAM, 2026-11-12).
+- [x] `tinytufty2040` (demo repo) builds for `-target=tufty2040` (223 064 B flash / 219 424 B RAM, 2026-11-12).
 - [x] UI package has no `machine` import; board files carry `//go:build tufty2040`.
 - [x] Host simulator renders every page; 13 screenshots inspected (`docs/evidence/tufty-sim/`).
 - [x] App code allocates only at construction (`-print-allocs`).
@@ -44,7 +44,7 @@ Owner request 2026-11-10 (direct): "a demo for this board that showcases all fea
 
 ## Verification
 
-`go vet ./examples/framebuffer ./examples/tufty2040/...`; `go run ./examples/tufty2040/sim -out <dir>`; `tinygo build -target=tufty2040 -size short`; on the device: `tinygo flash -target=tufty2040 ./examples/tufty2040`, then the serial `stats`, `pins` and `dump` commands.
+`go vet ./examples/framebuffer ./tinytufty2040/...`; `go run ./tinytufty2040/sim -out <dir>`; `tinygo build -target=tufty2040 -size short`; on the device: `tinygo flash -target=tufty2040 ./tinytufty2040`, then the serial `stats`, `pins` and `dump` commands.
 
 ## Log
 

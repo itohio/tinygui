@@ -14,7 +14,7 @@ revision: b140156+wip
 
 # Tufty 2040 showcase: command set
 
-One command channel, two sources (owner, 2026-11-12: "inject commands to the command channel from either source - uart or actual button"). Physical buttons and USB-serial lines end in the same calls, `App.Press(button, long)` and `App.UserHold(duration)` (`examples/tufty2040/app/app.go`), so a serial `a` and a press of A are the same event; both log `press a` to the Log page and the console. Part of [[example-tufty2040]].
+One command channel, two sources (owner, 2026-11-12: "inject commands to the command channel from either source - uart or actual button"). Physical buttons and USB-serial lines end in the same calls, `App.Press(button, long)` and `App.UserHold(duration)` (`tinytufty2040/app/app.go`), so a serial `a` and a press of A are the same event; both log `press a` to the Log page and the console. Part of [[example-tufty2040]].
 
 ## Button convention
 
