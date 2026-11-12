@@ -1,0 +1,70 @@
+# Obsidian Bases view of the discovery catalog. Syntax: https://help.obsidian.md/bases/syntax
+filters:
+  and:
+    - file.inFolder("discovery")
+    - 'type == "discovery"'
+formulas:
+  age_days: '((now() - date(raised)) / 86400000).round()'
+properties:
+  file.name:
+    displayName: Item
+  note.quadrant:
+    displayName: Quadrant
+  note.status:
+    displayName: Status
+  note.impact:
+    displayName: Impact
+  note.confidence:
+    displayName: Confidence
+  note.owner:
+    displayName: Owner
+  formula.age_days:
+    displayName: Age (days)
+views:
+  - type: table
+    name: By quadrant
+    groupBy:
+      property: note.quadrant
+      direction: ASC
+    groupOrder:
+      - known-known
+      - known-unknown
+      - unknown-known
+      - unknown-unknown
+    order:
+      - file.name
+      - note.status
+      - note.impact
+      - note.confidence
+      - note.owner
+  - type: table
+    name: Open by impact
+    filters:
+      or:
+        - 'status == "open"'
+        - 'status == "researching"'
+    groupBy:
+      property: note.impact
+      direction: ASC
+    groupOrder:
+      - critical
+      - high
+      - medium
+      - low
+    order:
+      - file.name
+      - note.quadrant
+      - note.status
+      - note.owner
+      - formula.age_days
+  - type: table
+    name: Recently answered
+    filters:
+      and:
+        - 'status == "answered"'
+        - 'date(answered) > today() - "30d"'
+    order:
+      - file.name
+      - note.answered
+      - note.quadrant
+      - note.confidence

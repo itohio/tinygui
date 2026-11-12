@@ -1,0 +1,68 @@
+# Obsidian Bases view of the ticket backlog. Syntax: https://help.obsidian.md/bases/syntax
+filters:
+  and:
+    - file.inFolder("backlog")
+    - 'type == "ticket"'
+properties:
+  file.name:
+    displayName: Ticket
+  note.status:
+    displayName: Status
+  note.priority:
+    displayName: Priority
+  note.kind:
+    displayName: Kind
+  note.area:
+    displayName: Area
+  note.assignee:
+    displayName: Assignee
+  note.estimate:
+    displayName: Estimate
+  note.updated:
+    displayName: Updated
+views:
+  - type: table
+    name: Board
+    groupBy:
+      property: note.status
+      direction: ASC
+    groupOrder:
+      - in-progress
+      - review
+      - todo
+      - blocked
+      - backlog
+      - done
+      - cancelled
+    order:
+      - file.name
+      - note.priority
+      - note.kind
+      - note.area
+      - note.assignee
+      - note.updated
+  - type: table
+    name: Next
+    filters:
+      and:
+        - 'status == "todo"'
+    groupBy:
+      property: note.priority
+      direction: ASC
+    order:
+      - file.name
+      - note.area
+      - note.kind
+      - note.estimate
+      - note.assignee
+  - type: table
+    name: Blocked
+    filters:
+      or:
+        - 'status == "blocked"'
+        - 'note["blocked-by"].length > 0'
+    order:
+      - file.name
+      - note.blocked-by
+      - note.status
+      - note.priority
