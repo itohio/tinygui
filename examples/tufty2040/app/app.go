@@ -162,13 +162,13 @@ func New(d ui.Displayer, hw Hardware, cfg Config, now time.Time) *App {
 		cmds:         make(chan command, 16),
 	}
 	a.restartCurves()
-	life := a.pageLife()
+	demos := []*page{a.pageLife(), a.pageWater(), a.pageFire(), a.pagePong(), a.pageBoids()}
 	a.picturesPage = a.pagePictures()
-	a.pages = []*page{
-		a.pageDemos(life),
+	a.pages = append([]*page{
+		a.pageDemos(demos...),
 		a.pageDashboard(), a.pageGauges(), a.pageControls(), a.picturesPage,
-		a.pageLayouts(), a.pageList(), a.pageLog(), life, a.pageWater(), a.pageFire(), a.pagePong(), a.pageBoids(),
-	}
+		a.pageLayouts(), a.pageList(), a.pageLog(),
+	}, demos...)
 	names := make([]string, len(a.pages))
 	pageWidgets := make([]ui.Widget, len(a.pages))
 	for i, p := range a.pages {

@@ -153,3 +153,7 @@ func (a *App) pageFire() *page {
 	p.demo = f
 	return p
 }
+
+func (f *fire) preview() []uint8      { return f.cells[:] }
+func (f *fire) palette() []color.RGBA { return firePalette }
+func (f *fire) showFull()             { f.fullOn = true }

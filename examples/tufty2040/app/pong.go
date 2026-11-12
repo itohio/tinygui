@@ -248,11 +248,7 @@ func (a *App) pagePong() *page {
 	level := widget.NewInteractiveLabelChoice(52, 11, pongLevels,
 		widget.WithLabelChoiceIndex(&p.level), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG))
 	play := widget.NewToggle(44, 12, fontBody, colFG, "PLAY", "PLAY", colTrack, colTrack,
-		func() bool { return false }, func(bool) {
-			p.fullOn, p.player, p.score = true, true, [2]int{}
-			p.target = p.pad[0]
-			a.log("pong: you vs cpu")
-		})
+		func() bool { return false }, func(bool) { p.showFull(); a.log("pong: you vs cpu") })
 	// explicit height: findings F-33
 	pg := a.newPageWith("Pong", layout.VFlow(4, pongH*pongPitch),
 		still(p.grid),
@@ -264,4 +260,13 @@ func (a *App) pagePong() *page {
 	)
 	pg.demo = p
 	return pg
+}
+
+func (p *pong) preview() []uint8      { return p.cells[:] }
+func (p *pong) palette() []color.RGBA { return pongPalette }
+
+// showFull starts a game against the CPU on the whole screen.
+func (p *pong) showFull() {
+	p.fullOn, p.player, p.score = true, true, [2]int{}
+	p.target = p.pad[0]
 }

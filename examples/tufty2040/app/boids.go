@@ -265,3 +265,7 @@ func (a *App) pageBoids() *page {
 	p.demo = b
 	return p
 }
+
+func (b *boids) preview() []uint8      { return b.cells[:] }
+func (b *boids) palette() []color.RGBA { return boidsPalette }
+func (b *boids) showFull()             { b.fullOn = true }

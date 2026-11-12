@@ -143,24 +143,33 @@ func (w *water) step() {
 
 var waterFullNames = []string{"5 px", "4 px"}
 
-// fullGrid returns the full-screen grid with its rows pointed at the part of
-// the 64 rows where the water collects: the bottom when gravity pulls down,
-// the top when up, the middle when sideways. Call from Update, not Draw.
+// fullGrid returns the full-screen grid with its rows pointed at the window
+// where the water collects. Call from Update, not Draw.
 func (w *water) fullGrid() *widget.CellGrid {
 	if !w.fullOn {
 		return nil
 	}
 	g := w.full[w.fullIdx]
-	off := (waterN - g.Rows) / 2
+	g.Cells = w.window(g.Rows)
+	return g
+}
+
+// window is rows of the 64 where gravity collects the water: the bottom when
+// it pulls down, the top when up, the middle when sideways.
+func (w *water) window(rows int) []uint8 {
+	off := (waterN - rows) / 2
 	switch waterGrav[w.dir][1] {
 	case 1:
-		off = waterN - g.Rows
+		off = waterN - rows
 	case -1:
 		off = 0
 	}
-	g.Cells = w.shade[off*waterN : (off+g.Rows)*waterN]
-	return g
+	return w.shade[off*waterN : (off+rows)*waterN]
 }
+
+func (w *water) preview() []uint8      { return w.window(tileRows) }
+func (w *water) palette() []color.RGBA { return waterPalette }
+func (w *water) showFull()             { w.fullOn = true }
 
 // turn rotates gravity one step (the full-screen view's UP/DOWN).
 func (w *water) turn(by int) { w.dir = (w.dir + by) & 7 }
