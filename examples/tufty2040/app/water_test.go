@@ -87,3 +87,37 @@ func TestWaterFollowsGravityQuickly(t *testing.T) {
 		t.Errorf("surface not vertical after 3 s: row widths %d..%d", lo, hi)
 	}
 }
+
+// Every one of the 8 gravity directions moves the water: settled against
+// the opposite side, it must travel towards the new "down" within 1 s (45
+// steps). The owner saw water "not reacting to gravity change".
+func TestWaterReactsToEveryGravityDirection(t *testing.T) {
+	com := func(w *water) (float64, float64) {
+		var sx, sy, n float64
+		for y := range waterN {
+			for x := range waterN {
+				if w.state[y*waterN+x]&waterBit != 0 {
+					sx, sy, n = sx+float64(x), sy+float64(y), n+1
+				}
+			}
+		}
+		return sx / n, sy / n
+	}
+	for d := range 8 {
+		w := newWater()
+		w.dir = (d + 4) % 8 // settle on the opposite side first
+		for range 135 {
+			w.step()
+		}
+		x0, y0 := com(w)
+		w.dir = d
+		for range 45 {
+			w.step()
+		}
+		x1, y1 := com(w)
+		g := waterGrav[d]
+		if moved := (x1-x0)*float64(g[0]) + (y1-y0)*float64(g[1]); moved < 8 {
+			t.Errorf("gravity %s: the water moved only %.1f cells towards it in 1 s", waterDirs[d], moved)
+		}
+	}
+}
