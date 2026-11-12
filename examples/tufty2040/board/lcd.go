@@ -94,9 +94,9 @@ func (l LCD) Command(cmd uint8, args ...uint8) {
 	machine.LCD_CS.High()
 }
 
-// window selects full-width rows y0…y1 and starts a RAM write.
-func (l LCD) window(y0, y1 int) {
-	l.Command(0x2A, 0x00, 0x00, 0x01, 0x3F)                           // CASET 0..319
+// window selects the rectangle x0…x1, y0…y1 (inclusive) and starts a RAM write.
+func (l LCD) window(x0, y0, x1, y1 int) {
+	l.Command(0x2A, uint8(x0>>8), uint8(x0), uint8(x1>>8), uint8(x1)) // CASET
 	l.Command(0x2B, uint8(y0>>8), uint8(y0), uint8(y1>>8), uint8(y1)) // RASET
 	machine.LCD_CS.Low()
 	machine.LCD_DC.Low()
@@ -106,8 +106,41 @@ func (l LCD) window(y0, y1 int) {
 
 // Push sends full-width rows starting at y0 (RGB565 pixels, MSB first).
 func (l LCD) Push(y0 int16, pix []uint16) {
-	l.window(int(y0), int(y0)+len(pix)/Width-1)
-	for _, p := range pix {
+	l.PushRect(0, y0, Width, int16(len(pix)/Width), pix)
+}
+
+// PushRect sends a w×h block of RGB565 pixels to (x, y): partial updates
+// cost only the pixels of the rectangle.
+func (l LCD) PushRect(x, y, w, h int16, pix []uint16) {
+	l.window(int(x), int(y), int(x+w)-1, int(y+h)-1)
+	for _, p := range pix[:int(w)*int(h)] {
+		write(uint8(p >> 8))
+		write(uint8(p))
+	}
+	machine.LCD_CS.High()
+}
+
+// PushIndexed sends a w×h block of 8-bit palette indices to (x, y), mapping
+// each through lut to RGB565 on the way out (half the RAM of RGB565).
+func (l LCD) PushIndexed(x, y, w, h int16, pix []uint8, lut *[256]uint16) {
+	l.window(int(x), int(y), int(x+w)-1, int(y+h)-1)
+	for _, i := range pix[:int(w)*int(h)] {
+		p := lut[i]
+		write(uint8(p >> 8))
+		write(uint8(p))
+	}
+	machine.LCD_CS.High()
+}
+
+// PushIndexed4 sends a w×h block of 4-bit palette indices (two pixels per
+// byte, high nibble first) to (x, y) through lut (a quarter of RGB565's RAM).
+func (l LCD) PushIndexed4(x, y, w, h int16, pix []uint8, lut *[16]uint16) {
+	l.window(int(x), int(y), int(x+w)-1, int(y+h)-1)
+	for _, b := range pix[:(int(w)*int(h)+1)/2] {
+		p := lut[b>>4]
+		write(uint8(p >> 8))
+		write(uint8(p))
+		p = lut[b&15]
 		write(uint8(p >> 8))
 		write(uint8(p))
 	}
@@ -116,7 +149,7 @@ func (l LCD) Push(y0 int16, pix []uint16) {
 
 // Fill paints the whole panel one RGB565 colour without a buffer.
 func (l LCD) Fill(c uint16) {
-	l.window(0, Height-1)
+	l.window(0, 0, Width-1, Height-1)
 	for range Width * Height {
 		write(uint8(c >> 8))
 		write(uint8(c))

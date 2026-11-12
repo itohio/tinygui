@@ -11,7 +11,6 @@ import (
 	"device/arm"
 	"io"
 	"machine"
-	"machine/usb"
 	"runtime"
 	"time"
 
@@ -33,24 +32,8 @@ var pixels [app.ScreenW * bandRows]uint16
 
 const frameTime = 33 * time.Millisecond
 
-// setUSBSerial makes the USB serial number the flash chip's unique ID in hex,
-// the same value MicroPython reported (df6750955f2a3536 on the owner's badge),
-// so host tools find the badge by serial number instead of by port name. It
-// runs first in main, before the host asks for the string descriptor; in an
-// init() the flash command stops TinyGo from evaluating package initialisers
-// at compile time (22 KB of tables moved from .data to runtime init).
-func setUSBSerial() {
-	const hex = "0123456789abcdef"
-	id := machine.DeviceID()
-	s := make([]byte, 0, 2*len(id))
-	for _, b := range id {
-		s = append(s, hex[b>>4], hex[b&15])
-	}
-	usb.Serial = string(s)
-}
-
 func main() {
-	setUSBSerial()
+	board.SetUSBSerial()
 	waitForConsole(3 * time.Second)
 	boot("start")
 	var panel board.LCD

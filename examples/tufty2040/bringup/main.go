@@ -32,6 +32,7 @@ var colours = []struct {
 }
 
 func main() {
+	board.SetUSBSerial()
 	// give a host up to 3 s to open the USB serial port so the log isn't lost
 	for end := time.Now().Add(3 * time.Second); time.Now().Before(end) && !machine.Serial.DTR(); {
 		time.Sleep(10 * time.Millisecond)
