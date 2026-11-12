@@ -106,7 +106,7 @@ func (l *life) step() {
 			}
 		}
 	}
-	l.cells = l.next
+	copy(l.cells[:], l.next[:]) // not l.cells = l.next: TinyGo builds that 3 KB copy on the heap (F-35)
 	l.gen++
 }
 

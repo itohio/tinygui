@@ -189,7 +189,9 @@ func octant(vx, vy int32) uint8 {
 }
 
 func (b *boids) render() {
-	for i, v := range b.cells { // heads become trail tops, trails fade
+	// range over a slice: ranging over the array field copies it, and TinyGo
+	// puts the 3 KB copy on the heap every tick (findings F-35)
+	for i, v := range b.cells[:] { // heads become trail tops, trails fade
 		switch {
 		case v > boidsTrail:
 			b.cells[i] = boidsTrail

@@ -211,7 +211,7 @@ func (w *water) shadeCells() {
 			w.shade[i] = d
 		}
 	}
-	for i, d := range w.shade {
+	for i, d := range w.shade[:] { // a slice: ranging the array copies it to the heap (F-35)
 		if d > 0 {
 			w.shade[i] = waterDepthShade[d-1]
 		}
