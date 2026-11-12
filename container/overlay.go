@@ -77,6 +77,12 @@ func (o *Overlay) Top() ui.Widget {
 func (o *Overlay) Draw(ctx ui.Context) {
 	w, h := o.Size()
 	o.Base.Draw(ui.ChildContext(ctx, &o.ctx, o.Base, w, h))
+	o.DrawLayers(ctx)
+}
+
+// DrawLayers draws only the open layers, for apps that paint more over the
+// base themselves (a status bar) before the overlays.
+func (o *Overlay) DrawLayers(ctx ui.Context) {
 	d := ctx.D()
 	for i := range o.n {
 		l := &o.layers[i]
