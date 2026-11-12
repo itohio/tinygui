@@ -20,6 +20,21 @@ func mallocs() uint64 {
 	return ms.Mallocs
 }
 
+var countProbe []*[16]byte
+
+// needMallocCount skips an allocation test on a runtime that counts no
+// allocations: TinyGo's default host GC (Boehm) reports Mallocs = 0, which
+// would pass every check. Run TinyGo with `tinygo test -gc=leaking`, which
+// counts each one (as the badge's own GC does).
+func needMallocCount(t *testing.T) {
+	t.Helper()
+	m0 := mallocs()
+	countProbe = append(countProbe, new([16]byte))
+	if mallocs() == m0 {
+		t.Skip("this runtime counts no allocations (TinyGo's host Boehm GC): run tinygo test -gc=leaking")
+	}
+}
+
 // The menu-driven soak allocates nothing after setup: every library path
 // (draw, input, navigation, pages, layout, overlays, animation, text) runs
 // allocation-free, so the app runs with the garbage collector disabled.
@@ -30,6 +45,7 @@ func mallocs() uint64 {
 // type assertions anywhere, library code included; so on Go the check is
 // testing.AllocsPerRun's: fewer than one allocation per step on average.
 func TestSoakDoesNotAllocate(t *testing.T) {
+	needMallocCount(t)
 	a := New()
 	steps := 0
 	a.AfterStep = func(int) { steps++ }
@@ -75,6 +91,7 @@ func display() (*framebuffer.RGB565, ui.ContextImpl) {
 // (testing.AllocsPerRun == 0 per draw and per interaction), on Go and on
 // TinyGo.
 func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
+	needMallocCount(t)
 	_, ctx := display()
 	var (
 		f32           float32 = 40
@@ -226,6 +243,7 @@ func (c *console) Read(b []byte) (int, error) {
 // The serial command mux reads and dispatches lines without allocating
 // (it converted every line to a string for the lookup).
 func TestCommandMuxDispatchesWithoutAllocating(t *testing.T) {
+	needMallocCount(t)
 	var got, arg int
 	r := &console{s: "up\nbl 40\r\nstats\nnope x\n\n"}
 	m := ui.NewCommandStreamMux(r, map[string]func([]byte){
@@ -248,6 +266,7 @@ func TestCommandMuxDispatchesWithoutAllocating(t *testing.T) {
 // of each, built first, then each drawn once: fewer than one allocation per
 // first draw (exactly none on TinyGo).
 func TestFirstDrawDoesNotAllocate(t *testing.T) {
+	needMallocCount(t)
 	_, ctx := display()
 	cells := make([]uint8, 64)
 	makers := []struct {

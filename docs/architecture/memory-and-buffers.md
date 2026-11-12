@@ -50,12 +50,14 @@ Owner, 2026-11-12: "tinygui itself should be 0 allocations (setup does not count
 
 Enforced by `internal/refapp` (plain `testing`, so TinyGo runs it):
 
+TinyGo counts allocations only with `-gc=leaking` (as the boards' own GC does): its default host GC (Boehm) reports `MemStats.Mallocs = 0`, which would pass every check, so the allocation tests check that the runtime counts first and skip with that message otherwise (review R-TG-1).
+
 | Check | How | Run |
 |---|---|---|
-| menu-driven soak | a reference app over every widget, container, overlay, `Pages`, the navigator, animation and text; 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history after setup: **exactly 0** allocations under TinyGo; on Go fewer than one per step (Go's runtime grows its type-assertion caches at random and allocates them at assertions anywhere) | `go test ./internal/refapp`, `tinygo test ./internal/refapp`, `tinygo test -gc=leaking ./internal/refapp` |
+| menu-driven soak | a reference app over every widget, container, overlay, `Pages`, the navigator, animation and text; 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history after setup: **exactly 0** allocations under TinyGo; on Go fewer than one per step (Go's runtime grows its type-assertion caches at random and allocates them at assertions anywhere) | `go test ./internal/refapp`, `tinygo test -gc=leaking ./internal/refapp` |
 | no GC at all | the same soak as a program under the leaking (never-freeing) allocator | `tinygo run -gc=leaking ./internal/refapp/cmd/refsoak` → "50 rounds, 0 allocations after setup" |
 | first draw | containers and grids size their buffers when built, so showing a page for the first time allocates nothing | `TestFirstDrawDoesNotAllocate` |
-| per widget | `testing.AllocsPerRun == 0` for each widget's `Draw` and its commands, the overlays, animation, `Log.Append` | `TestWidgetsDrawAndInteractWithoutAllocating` (Go and TinyGo) |
+| per widget | `testing.AllocsPerRun == 0` for each widget's `Draw` and its commands, the overlays, animation, `Log.Append` | `TestWidgetsDrawAndInteractWithoutAllocating` (Go and TinyGo `-gc=leaking`) |
 | static | `tinygo build -print-allocs=github.com/itohio/tinygui` on `cmd/refsoak`: every library heap site must be in `internal/refapp/allocs_allowlist.txt`, reviewed as setup-only (constructors, options, growth guards that only fire when a widget's children or size change after construction); a new site fails | `TestLibraryAllocatesOnlyInSetup` (needs `tinygo` on PATH) |
 
 Fixed on the way (findings F-38…F-43): the visibility map, the navigator's paths, `Log`'s copy per line, `ScrollChoice`'s cursor, `InteractiveLabel`'s `Sprintf` text (`e335450`), `ChildContext`'s `Clone` fallback under scroll offsets (`f35331d`). The per-frame `Clone` and per-event sites the table below found at `b140156` are gone.
