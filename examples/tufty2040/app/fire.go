@@ -9,29 +9,21 @@ import (
 )
 
 // Fire burns a liquid fuel (owner: "a little bit of liquid that piles up in
-// the corner or spreads over the edge, and it just burns from that"). The
-// fuel is the water's liquid engine: it pools, spreads and follows gravity.
-// Fuel exposed to air (the cell against gravity is empty) burns and is used
-// up; flames rise against gravity as heat spreading from the burning
-// surface, cooling and flickering (the "Doom fire" spread, turned with
-// gravity), and they light fuel they touch. Drawn on a 64×48 LED grid: the
-// flame palette over a dim fuel colour.
+// the corner or spreads over the edge ... the liquid never consumed though,
+// but it sloshes and seeds the fire"). The fuel is the water's liquid
+// engine: it pools, spreads and follows gravity, and is never used up.
+// Every fuel cell open to the air (the cell against gravity is empty) seeds
+// flames; flames rise against gravity as heat spreading from the surface,
+// cooling and flickering (the "Doom fire" spread, turned with gravity).
+// Drawn on a 64×48 LED grid: the flame palette over a dim fuel colour.
 const (
 	fireW, fireH = 64, 48
 	fireMax      = 36 // hottest flame (palette index)
 	fireFuel     = fireMax + 1
 	firePitch    = 3
 	firePool     = 120 // fuel cells in a fresh pool
-	fireSplash   = 40  // fuel cells A adds in full screen
-	// a burning surface cell is used up with probability 1/512 per step: a
-	// pool spread over the floor burns for about 40 s
-	fireBurnMask = 511
-	// below this much fuel a new splash drops in after fireRefuel steps, so
-	// the fire never goes out (on the badge it faded to a few cells)
-	fireLow    = 24
-	fireRefuel = 45
-	// heat at which fuel catches fire
-	fireIgnite = 12
+	fireSplash   = 40  // fuel cells a splash adds
+	fireMaxFuel  = 400 // splashes stop adding fuel above this
 )
 
 var (
@@ -67,8 +59,6 @@ type fire struct {
 	heat, next [fireW * fireH]uint8 // flame heat 0..fireMax, and the next step's
 	cells      [fireW * fireH]uint8 // what the grid shows
 	height     int
-	burning    int // burning fuel cells, for the page
-	low        int // steps since the fuel ran low
 	stepUS     int64
 	grid, full *widget.CellGrid
 	fullOn     bool
@@ -84,7 +74,7 @@ func newFire() *fire {
 	return f
 }
 
-// reset pours a fresh pool of fuel into the bottom-left corner and lights it.
+// reset pours a fresh pool of fuel into the bottom-left corner.
 func (f *fire) reset() {
 	clear(f.state)
 	clear(f.heat[:])
@@ -96,20 +86,14 @@ func (f *fire) reset() {
 			n++
 		}
 	}
-	f.ignite()
 }
 
-// ignite lights the fuel's surface.
-func (f *fire) ignite() {
-	for i, s := range f.state {
-		if s&liquidBit != 0 && f.exposed(i%fireW, i/fireW) {
-			f.state[i] |= liquidBurn
-		}
-	}
-}
-
-// splash drops a blob of burning fuel in from the side opposite gravity.
+// splash drops a blob of fuel in from the side opposite gravity (up to
+// fireMaxFuel in all).
 func (f *fire) splash() {
+	if f.count() > fireMaxFuel-fireSplash {
+		return
+	}
 	g := gravityVec[f.dir]
 	cx, cy := fireW/2-g[0]*(fireW/2-4), fireH/2-g[1]*(fireH/2-4)
 	n := 0
@@ -117,7 +101,7 @@ func (f *fire) splash() {
 		for dx := -4; dx <= 4 && n < fireSplash; dx++ {
 			x, y := cx+dx, cy+dy
 			if f.at(x, y) {
-				f.state[y*fireW+x] = newCell() | liquidBurn
+				f.state[y*fireW+x] = newCell()
 				n++
 			}
 		}
@@ -138,38 +122,9 @@ func (f *fire) step() {
 	gx, gy := g[0], g[1]
 	px, py := -gy, gx
 
-	// burn: exposed burning fuel feeds the flames and is used up; fuel
-	// catches from burning neighbours and from hot flames
-	burning := 0
-	for i, s := range f.state {
-		if s&liquidBit == 0 {
-			continue
-		}
-		x, y := i%fireW, i/fireW
-		if s&liquidBurn == 0 {
-			if f.heat[i] >= fireIgnite || f.burningNear(x, y) && rand32()&7 == 0 {
-				f.state[i] |= liquidBurn
-			}
-			continue
-		}
-		burning++
-		if f.exposed(x, y) && rand32()&fireBurnMask == 0 {
-			f.state[i] = 0 // burnt away
-		}
-	}
-	f.burning = burning
-	if f.count() < fireLow {
-		if f.low++; f.low > fireRefuel {
-			f.low = 0
-			f.splash()
-		}
-	} else {
-		f.low = 0
-	}
-
 	// flames: each cell takes the heat of the cell below it (towards
-	// gravity), flickered sideways, minus cooling; burning surfaces are the
-	// sources
+	// gravity), flickered sideways, minus cooling; the fuel's surface is the
+	// source
 	cool := &fireCool[f.height]
 	for y := range fireH {
 		for x := range fireW {
@@ -193,10 +148,10 @@ func (f *fire) step() {
 			f.next[i] = h
 		}
 	}
-	// the burning surface lights the air above it, so the fuel stays visible
+	// the fuel's surface lights the air above it, so the fuel stays visible
 	// under its flames
 	for i, s := range f.state {
-		if s&liquidBurn == 0 {
+		if s&liquidBit == 0 {
 			continue
 		}
 		x, y := i%fireW-gx, i/fireW-gy
@@ -225,16 +180,6 @@ func (f *fire) step() {
 	f.stepUS = time.Since(t0).Microseconds()
 }
 
-func (f *fire) burningNear(x, y int) bool {
-	for _, o := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
-		nx, ny := x+o[0], y+o[1]
-		if nx >= 0 && ny >= 0 && nx < fireW && ny < fireH && f.state[ny*fireW+nx]&liquidBurn != 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func (f *fire) tick() { f.step() }
 
 func (f *fire) fullGrid() *widget.CellGrid {
@@ -245,7 +190,7 @@ func (f *fire) fullGrid() *widget.CellGrid {
 }
 
 // fullPress: UP/DOWN turn gravity (the fuel flows, the flames lean), A
-// splashes burning fuel in, B back to the page, C leaves and changes page.
+// splashes fuel in, B back to the page, C leaves and changes page.
 func (f *fire) fullPress(b Button) bool {
 	switch b {
 	case BtnUp:
@@ -292,7 +237,7 @@ func (a *App) pageFire() *page {
 		newField("Flames", 42, 104, height),
 		newField("Full", 42, 104, full),
 		still(a.text(104, func() string {
-			return f.txt.reset().str("fuel ").int(f.count()).str(" burn ").int(f.burning).String()
+			return f.txt.reset().str("fuel ").int(f.count()).String()
 		}, colMuted)),
 		still(a.text(104, func() string { return f.txt2.reset().str("step ").int(int(f.stepUS)).str(" us").String() }, colMuted)),
 	)

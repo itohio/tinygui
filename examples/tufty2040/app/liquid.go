@@ -8,7 +8,6 @@ const (
 	liquidBit   = 1
 	liquidMoved = 2
 	liquidDir   = 4 // the cell's sideways direction: set = +perpendicular
-	liquidBurn  = 8 // free for users: fire marks burning fuel; moves keep it
 	// cells a blocked cell can flow sideways in one leg of a slide
 	liquidDisperse = 16
 	// cells a cell can fall in one step
@@ -50,8 +49,8 @@ func (l *liquid) at(x, y int) bool {
 	return x >= 0 && y >= 0 && x < l.w && y < l.h && l.state[y*l.w+x]&liquidBit == 0
 }
 
-// move puts the cell at x, y to nx, ny with bits (its sideways direction
-// and any extra flags such as burning), marked moved for this step.
+// move puts the cell at x, y to nx, ny with bits (its sideways direction),
+// marked moved for this step.
 func (l *liquid) move(x, y, nx, ny int, bits uint8) {
 	l.state[y*l.w+x] = 0
 	l.state[ny*l.w+nx] = liquidBit | liquidMoved | bits
@@ -101,13 +100,13 @@ func (l *liquid) step() {
 			if s&liquidBit == 0 || s&liquidMoved != 0 {
 				continue
 			}
-			dbit := s &^ (liquidBit | liquidMoved) // direction + extra flags
+			dbit := s & liquidDir
 			if k := l.fall(x, y, gx, gy); k > 0 {
 				l.move(x, y, x+gx*k, y+gy*k, dbit)
 				continue
 			}
 			d := -1
-			if dbit&liquidDir != 0 {
+			if dbit != 0 {
 				d = 1
 			}
 			switch {

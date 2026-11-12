@@ -34,24 +34,24 @@ func TestFireFlamesRiseAgainstGravity(t *testing.T) {
 	}
 }
 
-// A pool burns for a while (not out at once, not forever), and when the
-// fuel runs low a new splash drops in, so the fire never goes out.
-func TestFireBurnsItsFuelThenRefuels(t *testing.T) {
+// The fuel is never used up (owner: "liquid never consumed"): it only
+// moves, through gravity changes too, and splashes add to it up to a cap.
+func TestFireFuelIsNeverConsumed(t *testing.T) {
 	f := newFire()
-	start := f.count()
-	steps := 0
-	for f.count() >= fireLow && steps < 20000 {
-		f.step()
-		steps++
-	}
-	if steps < 600 || steps >= 20000 {
-		t.Fatalf("a %d-cell pool burnt low after %d steps, want 600..20000 (~25 s .. 13 min)", start, steps)
-	}
-	low := f.count()
-	for range fireRefuel + 2 {
+	n := f.count()
+	for s := range 3000 {
+		if s%500 == 250 {
+			f.turn(1)
+		}
 		f.step()
 	}
-	if f.count() <= low {
-		t.Fatalf("no new fuel after the pool burnt low (%d cells)", f.count())
+	if got := f.count(); got != n {
+		t.Fatalf("fuel %d after 3000 steps, want %d", got, n)
+	}
+	for range 20 {
+		f.splash()
+	}
+	if got := f.count(); got > fireMaxFuel {
+		t.Fatalf("splashes grew the fuel to %d, over the %d cap", got, fireMaxFuel)
 	}
 }
