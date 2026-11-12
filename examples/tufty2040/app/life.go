@@ -10,9 +10,9 @@ import (
 // Game of Life on a widget.CellGrid drawn as an LED matrix. Cell values are
 // ages: 0 dead, 1 newborn … lifeMaxAge old; the palette fades with age.
 const (
-	lifeCols   = 60
-	lifeRows   = 32
-	lifePitch  = 5
+	lifeCols   = 64
+	lifeRows   = 48
+	lifePitch  = 3
 	lifeMaxAge = 7
 )
 
@@ -36,7 +36,10 @@ type life struct {
 	pattern     int
 	gen         int
 	grid        *widget.CellGrid
+	full        *widget.CellGrid // 5 px LEDs on the whole screen
+	fullOn      bool
 	txt         textBuf
+	log         func(string)
 }
 
 func newLife() *life {
@@ -46,6 +49,7 @@ func newLife() *life {
 		l.xp[x] = (x + 1) % lifeCols
 	}
 	l.grid = widget.NewCellGrid(lifeCols, lifeRows, lifePitch, 1, widget.CellRound, l.cells[:], lifePalette, colBG)
+	l.full = widget.NewCellGrid(lifeCols, lifeRows, 5, 1, widget.CellRound, l.cells[:], lifePalette, colBG)
 	l.seed()
 	return l
 }
@@ -124,21 +128,21 @@ func rand32() uint32 {
 
 func (a *App) pageLife() *page {
 	l := newLife()
+	l.log = a.log
 	run := widget.NewToggle(44, 12, fontBody, colFG, "RUN", "PAUSE", colGood, colTrack,
 		func() bool { return l.running }, func(v bool) { l.running = v })
-	pat := widget.NewInteractiveLabelChoice(84, 11, lifePatterns,
+	pat := widget.NewInteractiveLabelChoice(70, 11, lifePatterns,
 		widget.WithLabelChoiceIndex(&l.pattern), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG),
 		widget.WithLabelChoiceChange(func(int, string) { l.seed(); a.log("life " + lifePatterns[l.pattern]) }))
-	gen := a.text(70, func() string { return l.txt.reset().str("gen ").int(l.gen).String() }, colMuted)
-	// HFlow puts the grid on its own row and the controls side by side below
-	// it, all as direct children of the page so UP/DOWN reach the controls.
-	// The width limit is explicit: with 0 HFlow uses the context width, which
-	// does not subtract the page padding, so the first control would land
-	// beside the grid, off screen (findings F-33).
-	p := a.newPageWith("Life", layout.HFlow(4, lifeCols*lifePitch),
+	full := widget.NewToggle(44, 12, fontBody, colFG, "SHOW", "SHOW", colTrack, colTrack,
+		func() bool { return false }, func(bool) { l.fullOn = true; a.log("life full screen") })
+	gen := a.text(104, func() string { return l.txt.reset().str("gen ").int(l.gen).String() }, colMuted)
+	// explicit height: findings F-33
+	p := a.newPageWith("Life", layout.VFlow(4, lifeRows*lifePitch),
 		still(l.grid),
-		newField("", 0, 60, run),
-		newField("Pattern", 44, 150, pat),
+		newField("Run", 34, 104, run),
+		newField("", 0, 104, pat),
+		newField("Full", 34, 104, full),
 		still(gen),
 	)
 	p.demo = l
@@ -151,5 +155,32 @@ func (l *life) tick() {
 	}
 }
 
-func (l *life) fullGrid() *widget.CellGrid { return nil }
-func (l *life) fullPress(Button) bool      { return false }
+func (l *life) fullGrid() *widget.CellGrid {
+	if l.fullOn {
+		return l.full
+	}
+	return nil
+}
+
+// fullPress: UP/DOWN next / previous pattern (reseeds), A run / pause, B
+// back to the page, C leaves and changes page.
+func (l *life) fullPress(b Button) bool {
+	switch b {
+	case BtnUp, BtnDown:
+		d := 1
+		if b == BtnDown {
+			d = len(lifePatterns) - 1
+		}
+		l.pattern = (l.pattern + d) % len(lifePatterns)
+		l.seed()
+		l.log("life " + lifePatterns[l.pattern])
+	case BtnA:
+		l.running = !l.running
+	case BtnB:
+		l.fullOn = false
+	case BtnC:
+		l.fullOn = false
+		return false
+	}
+	return true
+}
