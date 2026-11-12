@@ -79,7 +79,7 @@ func (g *CellGrid) Draw(ctx ui.Context) {
 		g.drawStrips(b, d, x0, y0, r0, r1, dot, round)
 		return
 	}
-	if g.Gap > 0 {
+	if g.Gap > 0 || round { // gaps and round cells' corners show the Off colour
 		fillRect(d, x0, y0, int16(g.Width), int16(g.Height), g.Off)
 	}
 	i := r0 * g.Cols
