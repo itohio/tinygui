@@ -44,6 +44,7 @@ type boids struct {
 	nvx, nvy     [boidsMax]int32
 	cells        [boidsW * boidsH]uint8
 	count        int // index into boidsN
+	pose         boxPose
 	stepUS       int64
 	grid, full   *widget.CellGrid
 	fullOn       bool
@@ -125,26 +126,51 @@ func (b *boids) step() {
 		}
 		vx += px / 8 // separation
 		vy += py / 8
-		const push = 16
-		if xi < boidsMargin {
-			vx += push
-		} else if xi > boidsW*boidsFix-boidsMargin {
-			vx -= push
-		}
-		if yi < boidsMargin {
-			vy += push
-		} else if yi > boidsH*boidsFix-boidsMargin {
-			vy -= push
-		}
 		b.nvx[i], b.nvy[i] = limit(vx, vy)
 	}
-	// move; a boid reaching an edge bounces off it (the minimum speed would
-	// otherwise undo the walls' push for a boid flying straight at a wall)
+	// move in the world, then meet the box's walls: seen from the box, a
+	// boid near a wall is pushed inwards, one past it (the wall moved, or it
+	// flew) is put back and bounces (the minimum speed would otherwise undo
+	// the push for a boid flying straight at a wall). Only boids a wall
+	// touches are converted back, so the others keep their world heading.
 	for i := range n {
 		b.vx[i], b.vy[i] = b.nvx[i], b.nvy[i]
-		b.x[i], b.vx[i] = bounce(b.x[i]+b.vx[i], b.vx[i], boidsW*boidsFix-1)
-		b.y[i], b.vy[i] = bounce(b.y[i]+b.vy[i], b.vy[i], boidsH*boidsFix-1)
+		b.x[i] += b.vx[i]
+		b.y[i] += b.vy[i]
+		b.walls(i)
 	}
+}
+
+// walls applies the box's walls to boid i.
+func (b *boids) walls(i int) {
+	const push = 16
+	const hiX, hiY = boidsW*boidsFix - 1, boidsH*boidsFix - 1
+	p := &b.pose
+	bx, by := p.toBox(b.x[i], b.y[i])
+	near := bx < boidsMargin || bx > hiX-boidsMargin || by < boidsMargin || by > hiY-boidsMargin
+	if !near {
+		return
+	}
+	vx, vy := p.vecToBox(b.vx[i], b.vy[i])
+	switch {
+	case bx < boidsMargin:
+		vx += push
+	case bx > hiX-boidsMargin:
+		vx -= push
+	}
+	switch {
+	case by < boidsMargin:
+		vy += push
+	case by > hiY-boidsMargin:
+		vy -= push
+	}
+	nx, nvx := bounce(bx, vx, hiX)
+	ny, nvy := bounce(by, vy, hiY)
+	nx, ny = min(max(nx, 0), hiX), min(max(ny, 0), hiY) // a fast wall can throw it far
+	if nx != bx || ny != by {
+		b.x[i], b.y[i] = p.toWorld(nx, ny)
+	}
+	b.vx[i], b.vy[i] = limit(p.vecToWorld(nvx, nvy))
 }
 
 func bounce(p, v, hi int32) (int32, int32) {
@@ -194,14 +220,18 @@ func (b *boids) render() {
 			b.cells[i] = v - 1
 		}
 	}
+	const hiX, hiY = boidsW*boidsFix - 1, boidsH*boidsFix - 1
 	for i := range boidsN[b.count] {
-		c := int(b.y[i]>>8)*boidsW + int(b.x[i]>>8)
-		b.cells[c] = boidsTrail + 1 + octant(b.vx[i], b.vy[i])
+		bx, by := b.pose.toBox(b.x[i], b.y[i])
+		bx, by = min(max(bx, 0), hiX), min(max(by, 0), hiY)
+		c := int(by>>8)*boidsW + int(bx>>8)
+		b.cells[c] = boidsTrail + 1 + octant(b.pose.vecToBox(b.vx[i], b.vy[i]))
 	}
 }
 
 func (b *boids) tick() {
 	t0 := time.Now()
+	b.pose.advance()
 	b.step()
 	b.render()
 	b.stepUS = time.Since(t0).Microseconds()
@@ -214,18 +244,18 @@ func (b *boids) fullGrid() *widget.CellGrid {
 	return nil
 }
 
-// fullPress: UP/DOWN more or fewer boids, A scatters the flock, B back to
-// the page, C leaves and changes page.
+// fullPress: UP/DOWN turn the box 22.5° (the walls sweep through the
+// flock), A shakes it, B back to the page, C leaves and changes page.
 func (b *boids) fullPress(btn Button) bool {
 	switch btn {
 	case BtnUp:
-		b.count = min(b.count+1, len(boidsN)-1)
-		b.log("boids " + boidsCounts[b.count])
+		b.pose.target += boxTurnStep
+		b.log("box turns")
 	case BtnDown:
-		b.count = max(b.count-1, 0)
-		b.log("boids " + boidsCounts[b.count])
+		b.pose.target -= boxTurnStep
+		b.log("box turns")
 	case BtnA:
-		b.scatter()
+		b.pose.shake()
 	case BtnB:
 		b.fullOn = false
 	case BtnC:
@@ -235,10 +265,10 @@ func (b *boids) fullPress(btn Button) bool {
 	return true
 }
 
-// scatter sends every boid away from the screen centre at top speed.
+// scatter sends every boid away from the box's centre at top speed.
 func (b *boids) scatter() {
 	for i := range boidsN[b.count] {
-		b.vx[i], b.vy[i] = limit(b.x[i]-boidsW*boidsFix/2, b.y[i]-boidsH*boidsFix/2)
+		b.vx[i], b.vy[i] = limit(b.x[i]-b.pose.cx, b.y[i]-b.pose.cy)
 	}
 }
 
@@ -249,6 +279,8 @@ func (a *App) pageBoids() *page {
 		widget.WithLabelChoiceIndex(&b.count), widget.WithLabelChoiceFont(fontBody), widget.WithLabelChoiceColor(colFG))
 	scatter := widget.NewToggle(44, 12, fontBody, colFG, "GO", "GO", colTrack, colTrack,
 		func() bool { return false }, func(bool) { b.scatter(); a.log("boids scatter") })
+	spin := widget.NewToggle(44, 12, fontBody, colFG, "ON", "OFF", colGood, colTrack,
+		func() bool { return b.pose.spin }, func(v bool) { b.pose.spin = v })
 	full := widget.NewToggle(44, 12, fontBody, colFG, "SHOW", "SHOW", colTrack, colTrack,
 		func() bool { return false }, func(bool) { b.fullOn = true; a.log("boids full screen") })
 	// explicit height: findings F-33
@@ -256,6 +288,7 @@ func (a *App) pageBoids() *page {
 		still(b.grid),
 		newField("Boids", 42, 104, count),
 		newField("Scatter", 42, 104, scatter),
+		newField("Spin", 42, 104, spin),
 		newField("Full", 42, 104, full),
 		still(a.text(104, func() string { return b.txt.reset().str("step ").int(int(b.stepUS)).str(" us").String() }, colMuted)),
 	)
@@ -267,8 +300,9 @@ func (b *boids) preview() []uint8      { return b.cells[:] }
 func (b *boids) palette() []color.RGBA { return boidsPalette }
 func (b *boids) showFull()             { b.fullOn = true }
 
-// reset scatters every boid at a random place and heading.
+// reset scatters every boid at a random place and heading in a straight box.
 func (b *boids) reset() {
+	b.pose = newBoxPose()
 	for i := range boidsMax {
 		b.x[i] = int32(rand32() % (boidsW * boidsFix))
 		b.y[i] = int32(rand32() % (boidsH * boidsFix))

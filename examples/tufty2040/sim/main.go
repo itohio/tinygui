@@ -39,7 +39,7 @@ const tour = "wait:60,shot:00-demos,a,wait:40,shot:00b-demos-life-full,b,down,wa
 	"down,down,a,wait:20,shot:20-water-full5,up,up,wait:60,shot:21-water-full5-up,b,down,a,up,a,up,a,wait:30,shot:22-water-full4,b,shot:23-water-back," +
 	"c,wait:90,shot:24-fire,a,up,up,a,wait:45,shot:25-fire-left,down,down,a,wait:30,shot:26-fire-splash,down,down,a,wait:20,shot:27-fire-full,up,up,wait:45,shot:27b-fire-full-up,a,wait:30,shot:27c-fire-full-splash,b," +
 	"c,wait:45,shot:28-pong,down,a,wait:30,shot:29-pong-you,up,up,wait:20,shot:30-pong-up,b,shot:31-pong-back," +
-	"c,wait:90,shot:32-boids,down,down,a,wait:60,shot:33-boids-full,a,wait:15,shot:34-boids-scatter,b"
+	"c,wait:90,shot:32-boids,down,down,down,a,wait:60,shot:33-boids-full,up,up,up,up,wait:30,shot:34-boids-box-turned,wait:60,shot:35-boids-box-turned-later,a,wait:10,shot:36-boids-box-shaken,b"
 
 type fakeHW struct{ t *time.Time }
 
