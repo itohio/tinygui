@@ -35,22 +35,23 @@ func TestFireFlamesRiseAgainstGravity(t *testing.T) {
 }
 
 // A pool burns for a while (not out at once, not forever), and when the
-// fuel is gone a new splash drops in.
+// fuel runs low a new splash drops in, so the fire never goes out.
 func TestFireBurnsItsFuelThenRefuels(t *testing.T) {
 	f := newFire()
 	start := f.count()
 	steps := 0
-	for f.count() > 0 && steps < 20000 {
+	for f.count() >= fireLow && steps < 20000 {
 		f.step()
 		steps++
 	}
 	if steps < 600 || steps >= 20000 {
-		t.Fatalf("a %d-cell pool burnt out after %d steps, want 600..20000 (~25 s .. 13 min)", start, steps)
+		t.Fatalf("a %d-cell pool burnt low after %d steps, want 600..20000 (~25 s .. 13 min)", start, steps)
 	}
+	low := f.count()
 	for range fireRefuel + 2 {
 		f.step()
 	}
-	if f.count() == 0 {
-		t.Fatal("no new fuel after the pool burnt out")
+	if f.count() <= low {
+		t.Fatalf("no new fuel after the pool burnt low (%d cells)", f.count())
 	}
 }

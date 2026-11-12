@@ -23,11 +23,13 @@ const (
 	firePitch    = 3
 	firePool     = 120 // fuel cells in a fresh pool
 	fireSplash   = 40  // fuel cells A adds in full screen
-	// a burning surface cell is used up with probability 1/256 per step: a
-	// fresh pool burns for about a minute
-	fireBurnMask = 255
-	// steps without fuel before a new splash drops in (the demo keeps going)
-	fireRefuel = 60
+	// a burning surface cell is used up with probability 1/512 per step: a
+	// pool spread over the floor burns for about 40 s
+	fireBurnMask = 511
+	// below this much fuel a new splash drops in after fireRefuel steps, so
+	// the fire never goes out (on the badge it faded to a few cells)
+	fireLow    = 24
+	fireRefuel = 45
 	// heat at which fuel catches fire
 	fireIgnite = 12
 )
@@ -66,7 +68,7 @@ type fire struct {
 	cells      [fireW * fireH]uint8 // what the grid shows
 	height     int
 	burning    int // burning fuel cells, for the page
-	empty      int // steps since the fuel ran out
+	low        int // steps since the fuel ran low
 	stepUS     int64
 	grid, full *widget.CellGrid
 	fullOn     bool
@@ -156,11 +158,13 @@ func (f *fire) step() {
 		}
 	}
 	f.burning = burning
-	if burning == 0 && f.count() == 0 {
-		if f.empty++; f.empty > fireRefuel {
-			f.empty = 0
+	if f.count() < fireLow {
+		if f.low++; f.low > fireRefuel {
+			f.low = 0
 			f.splash()
 		}
+	} else {
+		f.low = 0
 	}
 
 	// flames: each cell takes the heat of the cell below it (towards
