@@ -44,9 +44,24 @@ The library has no static RAM except the 1 536 B PNG line buffer, linked only wi
 | Command line buffer | mux, `make([]byte, 0, 128)`, grows with `append` beyond 128 | mux | `mux.go:23`, `:55`, `:69` |
 | Navigator stack/observers | navigator slices, grow with depth/observers | navigator | `navigator.go:40-59` |
 
-## Heap allocations
+## Heap allocations: none after setup (owner rule, enforced)
 
-Static analysis with `tinygo build -print-allocs=github.com/itohio/tinygui` on the demos (build-fixed copy, [[t-0001-m5stickc-examples-build]]):
+Owner, 2026-11-12: "tinygui itself should be 0 allocations (setup does not count)"; it must run with the garbage collector disabled. App code may allocate; the library may not, on any path: draw, input, navigation, pages, layout, overlays, animation, text.
+
+Enforced by `internal/refapp` (plain `testing`, so TinyGo runs it):
+
+| Check | How | Run |
+|---|---|---|
+| menu-driven soak | a reference app over every widget, container, overlay, `Pages`, the navigator, animation and text; 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history after setup: **exactly 0** allocations under TinyGo; on Go fewer than one per step (Go's runtime grows its type-assertion caches at random and allocates them at assertions anywhere) | `go test ./internal/refapp`, `tinygo test ./internal/refapp`, `tinygo test -gc=leaking ./internal/refapp` |
+| no GC at all | the same soak as a program under the leaking (never-freeing) allocator | `tinygo run -gc=leaking ./internal/refapp/cmd/refsoak` → "50 rounds, 0 allocations after setup" |
+| per widget | `testing.AllocsPerRun == 0` for each widget's `Draw` and its commands, the overlays, animation, `Log.Append` | `TestWidgetsDrawAndInteractWithoutAllocating` (Go and TinyGo) |
+| static | `tinygo build -print-allocs=github.com/itohio/tinygui` on `cmd/refsoak`: every library heap site must be in `internal/refapp/allocs_allowlist.txt`, reviewed as setup-only (60: constructors, options, first-draw buffer sizing); a new site fails | `TestLibraryAllocatesOnlyInSetup` (needs `tinygo` on PATH) |
+
+Fixed on the way (findings F-38…F-43): the visibility map, the navigator's paths, `Log`'s copy per line, `ScrollChoice`'s cursor, `InteractiveLabel`'s `Sprintf` text (`e335450`), `ChildContext`'s `Clone` fallback under scroll offsets (`f35331d`). The per-frame `Clone` and per-event sites the table below found at `b140156` are gone.
+
+Outside the library: tinyfont's `const1bit` fonts allocate per rune inside their `GetGlyph` (verify A-6); `ui.DrawText` with a regular `tinyfont.Font` (e.g. `proggy`, `freemono`) allocates nothing. A `Label`'s text provider and option callbacks are app code: they must not allocate either for a GC-free app (the Tufty showcase uses fixed text buffers).
+
+At `b140156` (before TG-1), static analysis on the demos (build-fixed copy, [[t-0001-m5stickc-examples-build]]) found:
 
 | Class | choice | gauge | Sites |
 |---|---|---|---|
@@ -54,7 +69,7 @@ Static analysis with `tinygo build -print-allocs=github.com/itohio/tinygui` on t
 | **every frame** | 2 | 2 | `context.go:79` (`ContextImpl.Clone` returns `&ret`: once per `Base` per frame, twice per `Scroll.Draw` (`container/scroll.go:68`, `:122`), and once per frame in `InteractiveWidgetChoice.Draw` (`widget/interactive_widget_choice.go:94`)), `container/scroll.go:156` (`offsetContext.Clone`) |
 | **every input event** | 3 | 2 | `container/choice.go:166` (`ScrollChoice.measure` builds a context), `navigator.go:168` (`Path` for observers), `widget/label.go:52` (`SetText` closure) |
 
-Not covered by that filter: allocations inside other packages called from the render path. Host measurements (`testing.AllocsPerRun`, Go 1.27 escape analysis, indicative only) on a 3-widget scene `Base > ScrollChoice > Base{Gauge, Label, InteractiveLabel}`: **14 allocations per frame**; a single `Base{Gauge}`: 1; `InteractiveLabel.Draw` alone: 1 unselected (`fmt.Sprintf`), 6 selected (format + `"▲ "+text+" ▼"`); `Navigator.Next+Prev` with one observer: 2 ([[baseline#Host probes]]).
+Host measurements then (`testing.AllocsPerRun`, Go 1.27): a 3-widget scene `Base > ScrollChoice > Base{Gauge, Label, InteractiveLabel}`: 14 allocations per frame; `InteractiveLabel.Draw` alone: 1 unselected (`fmt.Sprintf`), 6 selected; `Navigator.Next+Prev` with one observer: 2 ([[baseline#Host probes]]).
 
 Display driver: the ST7735 `setWindow` makes five heap allocations per call: four `[]uint8{…}` literals passed to `Tx` (`examples/m5stick/st7735/st7735.go:222-225`) and `Command(RAMWR)`, which builds `[]byte{command}` (`:226` → `:416`); all are flagged by `-print-allocs`, and upstream drivers v0.31.0 has the same code. Every `FillRectangle`, bitmap and `SetPixel` goes through `setWindow`, so text, which is drawn pixel by pixel, costs five heap allocations per lit pixel.
 
