@@ -60,7 +60,10 @@ func (l *Label) SetTextProvider(fn func() string) {
 	}
 }
 
-// Text returns the currently rendered string.
+// Text returns the text the provider gives now. A provider may return a
+// view of its own buffer (InteractiveLabel's does, to draw without
+// allocating): it is valid until the next Text or Draw — copy it
+// (strings.Clone) to keep it.
 func (l *Label) Text() string {
 	return l.text()
 }

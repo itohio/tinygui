@@ -62,7 +62,7 @@ Claims of the former `DESIGN.md` (and two doc comments) that differ from `b14015
 | `ScrollChoice` is "Planned" | implemented and tested | `container/choice.go:41-181`, `container/choice_test.go` |
 | Navigator API includes `WalkPath` | the method is `Walk` | `navigator.go:185` |
 | Doc comment on `ActivationHandler`: "The navigator toggles them on ENTER/BACK" (`widget.go:70-72`, not `DESIGN.md`) | containers toggle them in `SetActive`; the navigator only calls `SetActive` | `container/base.go:200-232`, `navigator.go:126`, `:153` |
-| `InteractiveLabel` edits "without extra allocation" | formats with `fmt.Sprintf` and string concatenation on every draw | `widget/interactive_label.go:37`, `:149-155` |
+| `InteractiveLabel` edits "without extra allocation" | at `b140156` formatted with `fmt.Sprintf` and string concatenation on every draw (fixed since `e335450`: a fixed buffer, `strconv`) | `widget/interactive_label.go` |
 | `Separator` reuses "accelerated displayer paths" | always `SetPixel` loops via `HLine/VLine` | `widget/separator.go:31-34`, `drawing.go:35-50` |
 | "Provides fallbacks for drawing lines and rectangles" | line fallbacks exist; there is no rectangle fallback helper in `drawing.go` (widgets inline their own loops) | `drawing.go`, `widget/volume_gauge.go:179-190` |
 | `png2bin` converts "PNG/JPEG" | decodes PNG only; `.jpg` passes the extension check and then fails in `png.Decode` | `cmd/png2bin/png2bin.go:39-56` |

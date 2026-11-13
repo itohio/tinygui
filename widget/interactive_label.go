@@ -3,6 +3,7 @@ package widget
 import (
 	"image/color"
 	"strconv"
+	"unicode/utf8"
 	"unsafe"
 
 	ui "github.com/itohio/tinygui"
@@ -18,7 +19,9 @@ type InteractiveLabel[T Number] struct {
 	stepSmall T
 	stepLarge T
 
-	formatter func(T) string // nil: the number as fmt's %v would print it
+	// formatter: nil shows the number (strconv: as fmt's %v prints a plain
+	// number). A String method of T isn't used: names come from WithFormatter.
+	formatter func(T) string
 	onCommit  func(T)
 	text      [40]byte // the shown text, rebuilt per draw without allocating
 	enabled   bool
@@ -151,25 +154,47 @@ func (l *InteractiveLabel[T]) displayText() string {
 		// else changed it (it was loaded only when editing began)
 		v = clamp(l.min, l.max, *l.external)
 	}
-	b := l.text[:0]
 	marked := l.enabled && l.Selected()
+	n := 0
 	if marked {
-		b = append(b, "▲ "...)
+		n = copy(l.text[:], markOpen)
 	}
 	if l.formatter != nil {
-		b = append(b, l.formatter(v)...)
+		// copied into the fixed buffer, cut at a rune boundary with room for
+		// the closing mark: a longer text never grows (allocates) a buffer
+		room := len(l.text) - n
+		if marked {
+			room -= len(markClose)
+		}
+		s := l.formatter(v)
+		if len(s) > room {
+			s = s[:room]
+			for len(s) > 0 { // drop a rune cut in half
+				if r, size := utf8.DecodeLastRuneInString(s); r != utf8.RuneError || size > 1 {
+					break
+				}
+				s = s[:len(s)-1]
+			}
+		}
+		n += copy(l.text[n:], s)
 	} else {
-		b = appendNumber(b, v)
+		n = len(appendNumber(l.text[:n], v)) // ≤ 24 bytes: fits beside both marks
 	}
 	if marked {
-		b = append(b, " ▼"...)
+		n += copy(l.text[n:], markClose)
 	}
-	if len(b) == 0 {
+	if n == 0 {
 		return ""
 	}
-	// a view of l.text, drawn at once (Label reads it during Draw)
-	return unsafe.String(&b[0], len(b))
+	// a view of l.text, valid until the next displayText (Label reads it
+	// during Draw; Label.Text's doc says so)
+	return unsafe.String(&l.text[0], n)
 }
+
+const (
+	markOpen  = "▲ "
+	markClose = " ▼"
+)
 
 // appendNumber appends v as fmt's %v prints it, without fmt and without
 // converting v to an interface (which heap-allocates a float64 on 32-bit

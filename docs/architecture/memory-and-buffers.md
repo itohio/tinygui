@@ -24,7 +24,7 @@ Who owns which memory and where the heap is touched, at `b140156`. Numbers from 
 | same, minimal probe (label, toggle, container, navigator) | 2 054 B code | 0 B static | probe on `pico` |
 | `tinyfont` incl. `TomThumb` | 6 402 B | **5 845 B** (`data`: glyph tables are `var` slices, copied to RAM) | `-size full` |
 | choice demo icons (`[]uint16` vars) | 10 112 B | **10 112 B** (`data`) | `-size full` |
-| `fmt` + `strconv` + `internal/strconv` (pulled in by the demos' `fmt.Sprintf` and by the library: `NewInteractiveLabel`'s default formatter, `widget/interactive_label.go:37`) | ≈ 36.5 KB | 1 328 B | `-size full`; the probe without `fmt` has none |
+| `fmt` + `strconv` + `internal/strconv` (pulled in by the demos' `fmt.Sprintf`; at `b140156` also by the library's `NewInteractiveLabel` default formatter — since `e335450` the library formats with `strconv` only) | ≈ 36.5 KB | 1 328 B | `-size full`; the probe without `fmt` has none |
 | whole choice demo | 139 132 B | 22 252 B | `-size short` totals |
 
 The library has no static RAM except the 1 536 B PNG line buffer, linked only with `DrawPng`/`Icon`. RAM goes to fonts and images declared as package-level slice variables, which TinyGo places in `.data` (copied to RAM at boot) rather than flash.

@@ -3,9 +3,12 @@ package widget
 import (
 	"fmt"
 	"image/color"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	ui "github.com/itohio/tinygui"
+	"github.com/itohio/tinygui/internal/check"
 	"github.com/stretchr/testify/require"
 	"tinygo.org/x/tinyfont"
 )
@@ -106,3 +109,46 @@ func TestInteractiveLabelTextWithoutAllocating(t *testing.T) {
 	require.Equal(t, "▲ "+fmt.Sprintf("%v", f)+" ▼", fl.displayText())
 	require.Zero(t, testing.AllocsPerRun(100, func() { _ = fl.displayText(); _ = il.displayText() }))
 }
+
+// The text path's corners (verify TG-1-postcommit R11): negative numbers;
+// a custom formatter longer than the buffer is cut (at a rune boundary,
+// keeping the closing mark) and never allocates, selected or not; a number
+// type's String method isn't used (names need WithFormatter); Text is a
+// view, valid until the next Text or Draw.
+func TestInteractiveLabelTextCorners(t *testing.T) {
+	neg := -1234
+	nl := NewInteractiveLabel[int](80, 11, WithValue(&neg), WithRange(-5000, 5000))
+	check.Equal(t, "-1234", nl.displayText())
+
+	long := "abcdefghij" + "ÄÖÜabcdefg" + "abcdefghij" + "abcdefghij" + "abcdefghij" // 53 bytes
+	v := 1
+	fl := NewInteractiveLabel[int](80, 11, WithValue(&v), WithRange(0, 9), WithFormatter(func(int) string { return long }))
+	got := fl.displayText()
+	check.LessOrEqual(t, len(got), 40)
+	check.True(t, utf8.ValidString(got))
+	check.True(t, strings.HasPrefix(long, got))
+	fl.SetSelected(true)
+	got = fl.displayText()
+	check.True(t, strings.HasPrefix(got, "▲ ") && strings.HasSuffix(got, " ▼") && utf8.ValidString(got), got)
+	check.Zero(t, testing.AllocsPerRun(50, func() { _ = fl.displayText(); _ = nl.displayText() }))
+	fl.SetSelected(false)
+	check.Zero(t, testing.AllocsPerRun(50, func() { _ = fl.displayText() }))
+
+	m := mode(1)
+	ml := NewInteractiveLabel[mode](80, 11, WithValue(&m), WithRange[mode](0, 2))
+	check.Equal(t, "1", ml.displayText(), "the number, not mode.String")
+	named := NewInteractiveLabel[mode](80, 11, WithValue(&m), WithRange[mode](0, 2), WithFormatter(func(v mode) string { return v.String() }))
+	check.Equal(t, "on", named.displayText(), "names via WithFormatter")
+
+	x := 17
+	xl := NewInteractiveLabel[int](80, 11, WithValue(&x), WithRange(0, 99))
+	s := xl.Text()
+	x = 42
+	_ = xl.Text()
+	check.Equal(t, "42", s, "Text is a view of the label's buffer: the next Text overwrites it (documented)")
+}
+
+// mode is a number type with a String method.
+type mode int
+
+func (m mode) String() string { return [...]string{"off", "on", "auto"}[m] }

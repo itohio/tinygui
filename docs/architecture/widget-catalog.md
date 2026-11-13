@@ -39,7 +39,7 @@ Every widget and container at `b140156`. Part of [[architecture]]. "Binding" = h
 | Widget | Source | Edits | Commands | Commit model |
 |---|---|---|---|---|
 | `Toggle` | `widget/toggle.go:11-79` | `getter/setter func(bool)` (the only widget with getter/setter callbacks) | `ENTER/LEFT/RIGHT` flip immediately | immediate; background via `FillRectangle`, label via `tinyfont.WriteLine` (`:59-68`) |
-| `InteractiveLabel[T]` | `widget/interactive_label.go:11-191` | `*T` via `WithValue` | `UP/NEXT ±small`, `LONG_UP/RIGHT ±large`, `ENTER` commit, `ESC/BACK` revert | pending copy; text via `fmt.Sprintf("%v")` and `"▲ "+text+" ▼"` while selected (`:149-155`) |
+| `InteractiveLabel[T]` | `widget/interactive_label.go` | `*T` via `WithValue` | `UP/NEXT ±small`, `LONG_UP/RIGHT ±large`, `ENTER` commit, `ESC/BACK` revert | pending copy; text built in a fixed 40-byte buffer: the number via `strconv` (a String method isn't used — names need `WithFormatter`), a formatter's text cut to fit, `▲ … ▼` while selected; no allocation; `Text()` is a view valid until the next `Text`/`Draw` |
 | `InteractiveGauge[T]` | `widget/interactive_gauge.go:10-195` | `*T` | as label | pending copy drawn by the embedded `Gauge` |
 | `InteractiveMultiGauge[T]` | `widget/interactive_gauge.go:198-412` | `*[]T`, max 4 segments (`widget/numeric.go:20`) | `UP/DOWN` value, `LEFT/RIGHT` segment, `ENTER` next segment then commit | fixed arrays `[4]T` for pending/original (`:209-210`) |
 | `InteractiveIcon` | `widget/interactive_icon.go:8-149` | `[]string` PNGs, external `*int` | `UP/NEXT/RIGHT` forward, `DOWN/PREV/LEFT` back, wraps | immediate; `SetImage` allocates a closure per change (`widget/icon.go:21-23`) |
