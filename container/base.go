@@ -201,7 +201,12 @@ func (c *Base[T]) drawArranged(ctx ui.Context, w, h int16) {
 	c.arranger.Arrange(uint16(max(w, 0)), uint16(max(h, 0)), c, rects)
 	ox, oy := c.marginX+c.paddingX, c.marginY+c.paddingY
 	for i, item := range c.Items {
-		ctx.SetPos(ox+rects[i].X, oy+rects[i].Y)
+		// by delta, not SetPos: SetPos refuses a position outside the box
+		// (a centred child taller than its line, an anchor pulled out by a
+		// negative offset, an overflowing centred block) and the child was
+		// drawn where the previous one was (review R-TG-1 L1)
+		px, py := ctx.Pos()
+		ctx.AddPos(ox+rects[i].X-px, oy+rects[i].Y-py)
 		visible := childVisible(ctx, item)
 		c.setVisibility(i, item, visible)
 		if visible {
