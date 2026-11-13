@@ -25,7 +25,7 @@ Every widget and container at `b140156`. Part of [[architecture]]. "Binding" = h
 | `Log` | `widget/multiline.go:171-209` | `Append(string)`; capacity cap re-allocates the slice on every append once full (`:201-209`) | none | as above | none |
 | `Separator` | `widget/separator.go:10-36` | colour field | none | `HLine`/`VLine` via `SetPixel` loop (`drawing.go:35-50`); does not use `LineDisplayer` | none |
 | `Gauge[T]` | `widget/gauge.go:10-118` | `*T` + `Min/Max`; orientation from geometry (`:55`) | none | `FillRectangle` background + fill → `HLine/VLine` loops | `gauge_test.go` |
-| `MultiGauge[T]` | `widget/gauge.go:121-261` | `*[]T` stacked segments, colours per segment | none | as `Gauge` | via interactive |
+| `MultiGauge[T]` | `widget/gauge.go` | `*[]T` stacked segments, colours per segment; each segment its part of Min..Max, cut at the bar's end, or with `Shares` its share of the total (fills the bar exactly) | none | as `Gauge` | via interactive (`WithShares`) |
 | `VolumeGauge[T]` | `widget/volume_gauge.go:15-106` | `*T`; 12 bars default, green→yellow→red, dimmed above value | none | `fillRect` per bar and gap (`:179-190`); `math.Round` on `float64` per bar (`:86`) | `volume_gauge_test.go` |
 | `SolidGauge[T]` | `widget/volume_gauge.go:35-131` | `*T` | none | two `fillRect` | `volume_gauge_test.go` |
 | `Scope` | `widget/scope.go` | caller-owned `Samples []uint16` + `Lo/Hi` range, updated in place | none | grid lines, then one `fillRect` per pixel column spanning the min…max of its samples (peak detect) joined to the previous column; trigger level/point ticks; 0 allocations | `scope_test.go` |

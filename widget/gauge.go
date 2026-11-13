@@ -117,7 +117,11 @@ func (g *Gauge[T]) drawVertical(ctx ui.Context) {
 	}
 }
 
-// MultiGauge renders a gauge with multiple values represented as coloured segments.
+// MultiGauge renders a gauge with multiple values represented as coloured
+// segments, laid end to end. Each segment is its value's part of Min..Max,
+// cut off at the end of the bar; with Shares, each is its share of the
+// values' total instead, so the segments always fill the bar exactly (a mix:
+// percentages of the whole).
 type MultiGauge[T Number] struct {
 	ui.WidgetBase
 	Values     *[]T
@@ -126,6 +130,7 @@ type MultiGauge[T Number] struct {
 	Colors     []color.RGBA
 	Background color.RGBA
 	Foreground color.RGBA
+	Shares     bool // segments are shares of the total (negative values count as 0), not parts of Min..Max
 }
 
 // NewMultiGauge constructs a multivalue gauge.
@@ -190,10 +195,11 @@ func (g *MultiGauge[T]) drawHorizontal(ctx ui.Context) {
 	}
 
 	vals := *g.Values
-	cumulative := int16(0)
+	total := g.total(vals)
+	acc, cumulative := 0.0, int16(0)
 	for i, v := range vals {
-		segVal := clamp(g.Min, g.Max, v)
-		segWidth := position(g.Min, g.Max, segVal, width-2)
+		end := g.segmentEnd(v, &acc, total, cumulative, width-2)
+		segWidth := end - cumulative
 		if segWidth <= 0 {
 			continue
 		}
@@ -235,10 +241,11 @@ func (g *MultiGauge[T]) drawVertical(ctx ui.Context) {
 	}
 
 	vals := *g.Values
-	cumulative := int16(0)
+	total := g.total(vals)
+	acc, cumulative := 0.0, int16(0)
 	for i, v := range vals {
-		segVal := clamp(g.Min, g.Max, v)
-		segHeight := position(g.Min, g.Max, segVal, height-2)
+		end := g.segmentEnd(v, &acc, total, cumulative, height-2)
+		segHeight := end - cumulative
 		if segHeight <= 0 {
 			continue
 		}
@@ -258,6 +265,37 @@ func (g *MultiGauge[T]) drawVertical(ctx ui.Context) {
 			break
 		}
 	}
+}
+
+// total is the sum of the positive values (Shares only).
+func (g *MultiGauge[T]) total(vals []T) float64 {
+	if !g.Shares {
+		return 0
+	}
+	s := 0.0
+	for _, v := range vals {
+		if v > 0 {
+			s += float64(v)
+		}
+	}
+	return s
+}
+
+// segmentEnd is where the segment of v, starting at start, ends along a bar
+// n pixels long (never past it). With Shares it is placed from the running
+// sum acc (updated here), so rounding leaves no gaps and the last segment
+// ends at n exactly.
+func (g *MultiGauge[T]) segmentEnd(v T, acc *float64, total float64, start, n int16) int16 {
+	if !g.Shares {
+		return min(start+position(g.Min, g.Max, clamp(g.Min, g.Max, v), n), n)
+	}
+	if v > 0 {
+		*acc += float64(v)
+	}
+	if total <= 0 {
+		return start
+	}
+	return min(int16(*acc/total*float64(n)+0.5), n)
 }
 
 func isZeroColor(c color.RGBA) bool {

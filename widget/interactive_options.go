@@ -184,6 +184,17 @@ func WithBackground[T Number](c color.RGBA) InteractiveOption[T] {
 	}
 }
 
+// WithShares draws a multi-value gauge's segments as shares of the values'
+// total (they always fill the bar) instead of parts of the range
+// (MultiGauge.Shares). The range still clamps edits.
+func WithShares[T Number]() InteractiveOption[T] {
+	return InteractiveOption[T]{
+		applyMulti: func(g *InteractiveMultiGauge[T]) {
+			g.Shares = true
+		},
+	}
+}
+
 // WithSegmentColors sets per-segment colours for multi-value gauges.
 func WithSegmentColors[T Number](colors []color.RGBA) InteractiveOption[T] {
 	return InteractiveOption[T]{
