@@ -256,6 +256,39 @@ func TestDialogClosedByHostReopensAtTheFirstOption(t *testing.T) {
 	check.Equal(t, []int{0}, chosen)
 }
 
+// While a layer is open the overlay is modal: a command the layer doesn't
+// handle is swallowed too, never passed to the base.
+func TestModalOverlaySwallowsUnhandledCommands(t *testing.T) {
+	o, base, _ := newHost()
+	o.OpenCentered(widget.NewDialog(style, "Hi", nil, []string{"OK"}, nil, nil))
+	check.True(t, o.Interact(ui.USER), "swallowed")
+	check.True(t, o.Interact(ui.IDLE))
+	check.Empty(t, base.got)
+}
+
+// Two layers: commands go to the top one only; drawing paints the base,
+// then the layers in the order they were opened.
+func TestTwoLayersInputAndDrawOrder(t *testing.T) {
+	o, base, _ := newHost()
+	lower, upper := &recorder{WidgetBase: ui.NewWidgetBase(40, 20)}, &recorder{WidgetBase: ui.NewWidgetBase(20, 10)}
+	check.True(t, o.Open(lower, 5, 5))
+	check.True(t, o.Open(upper, 10, 10))
+	o.Interact(ui.DOWN)
+	check.Empty(t, base.got)
+	check.Empty(t, lower.got)
+	check.Equal(t, []ui.UserCommand{ui.DOWN}, upper.got)
+
+	rec := &fillRecorder{nopDisplay: nopDisplay{200, 100}}
+	var order []string
+	o.Base = newDrawSpy("base", &order)
+	o.Close(lower)
+	o.Open(newDrawSpy("lower", &order), 5, 5)
+	o.Open(newDrawSpy("upper", &order), 10, 10)
+	ctx := ui.NewContext(rec, 200, 100, 0, 0)
+	o.Draw(&ctx)
+	check.Equal(t, []string{"base", "lower", "upper"}, order)
+}
+
 // drawSpy records its name when drawn.
 type drawSpy struct {
 	ui.WidgetBase
@@ -269,3 +302,45 @@ func newDrawSpy(name string, order *[]string) *drawSpy {
 
 func (s *drawSpy) Draw(ui.Context) { *s.order = append(*s.order, s.name) }
 
+// A dialog's selection stays within its options: UP on the first stays
+// there, DOWN past the last stays on the last.
+func TestDialogSelectionIsClamped(t *testing.T) {
+	o, _, _ := newHost()
+	got := -1
+	d := widget.NewDialog(style, "Pick", nil, []string{"a", "b", "c"}, func(i int) { got = i }, nil)
+	o.OpenCentered(d)
+	o.Interact(ui.UP)
+	check.Equal(t, 0, d.Choice())
+	for range 5 {
+		o.Interact(ui.DOWN)
+	}
+	check.Equal(t, 2, d.Choice())
+	o.Interact(ui.ENTER)
+	check.Equal(t, 2, got)
+}
+
+// The dropdown's list opens on the current choice, not the first option.
+func TestDropdownListStartsOnTheCurrentChoice(t *testing.T) {
+	idx, chose := 1, -1
+	dd := widget.NewDropdown(60, style, []string{"x1", "x2", "x4"}, &idx, func(i int, _ string) { chose = i })
+	page := container.New[ui.Widget](200, 100, container.WithChildren[ui.Widget](dd))
+	o := container.NewOverlay(page)
+	ctx := ui.NewContext(nopDisplay{200, 100}, 200, 100, 0, 0)
+	page.Draw(&ctx)
+	check.True(t, dd.Open())
+	o.Interact(ui.ENTER)
+	check.Equal(t, 1, chose)
+	check.Equal(t, 1, idx)
+}
+
+// OpenCentered puts the layer in the middle of the overlay.
+func TestOpenCenteredPosition(t *testing.T) {
+	o, _, _ := newHost() // 200×100
+	rec := &fillRecorder{nopDisplay: nopDisplay{200, 100}}
+	d := widget.NewDialog(style, "Centre", nil, nil, nil, nil)
+	w, h := d.Size()
+	o.OpenCentered(d)
+	ctx := ui.NewContext(rec, 200, 100, 0, 0)
+	o.Draw(&ctx)
+	check.Contains(t, rec.fills, [4]int16{(200 - int16(w)) / 2, (100 - int16(h)) / 2, int16(w), int16(h)}, "the dialog's background")
+}
