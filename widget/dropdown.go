@@ -70,6 +70,9 @@ func (d *Dropdown) Open() bool {
 	return h.Open(&d.list, d.x, y)
 }
 
+// Activate opens the list (ui.Activator: a Navigator's Enter opens it).
+func (d *Dropdown) Activate() bool { return d.Open() }
+
 func (d *Dropdown) Interact(cmd ui.UserCommand) bool {
 	if cmd == ui.ENTER {
 		return d.Open()

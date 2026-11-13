@@ -68,6 +68,13 @@ func (t *Toggle) Draw(ctx ui.Context) {
 	ui.DrawText(d, t.font, x+2, textY, label, t.text)
 }
 
+// Activate flips the toggle (ui.Activator: a Navigator's Enter flips it,
+// no edit mode).
+func (t *Toggle) Activate() bool {
+	t.set(!t.get())
+	return true
+}
+
 func (t *Toggle) Interact(cmd ui.UserCommand) bool {
 	switch cmd {
 	case ui.ENTER, ui.LEFT, ui.RIGHT:

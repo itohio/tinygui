@@ -24,7 +24,24 @@ const (
 	NavigatorEventFocusChanged NavigatorEventType = iota
 	NavigatorEventActivated
 	NavigatorEventDeactivated
+	// NavigatorEventActed: Enter on an Activator, which acted at once (a list
+	// opened, a toggle flipped); nothing was left active
+	NavigatorEventActed
 )
+
+// Activator is a widget that acts as soon as it is entered, instead of
+// taking the focus's commands (edit mode): a Dropdown opens its list, a
+// Toggle flips. Activate reports whether it acted.
+type Activator interface {
+	Activate() bool
+}
+
+// Modal is an overlay host that reports a modal layer open (container.
+// Overlay with a dialog or list open): while it is, a Navigator below it
+// doesn't move the focus, enter or go back.
+type Modal interface {
+	Modal() bool
+}
 
 // NavigatorEvent encapsulates navigation changes for observers. Path is
 // the navigator's own buffer: valid during the callback, overwritten by the
@@ -83,6 +100,9 @@ func (n *Navigator) Current() Widget {
 
 // Next advances focus to the next selectable widget in the current container.
 func (n *Navigator) Next() bool {
+	if n.blocked() {
+		return false
+	}
 	container := n.currentContainer()
 	target := n.findSelectable(container, container.Index()+1, 1)
 	if target < 0 {
@@ -92,6 +112,9 @@ func (n *Navigator) Next() bool {
 }
 
 func (n *Navigator) Prev() bool {
+	if n.blocked() {
+		return false
+	}
 	container := n.currentContainer()
 	start := container.Index()
 	if start < 0 {
@@ -108,6 +131,9 @@ func (n *Navigator) Prev() bool {
 
 // Focus explicitly sets the selection index inside the current container.
 func (n *Navigator) Focus(index int) bool {
+	if n.blocked() {
+		return false
+	}
 	container := n.currentContainer()
 	if index < 0 {
 		prev := container.Index()
@@ -128,10 +154,17 @@ func (n *Navigator) Focus(index int) bool {
 // stack (refused, returning false, at MaxNavDepth), other widgets receive
 // activation events.
 func (n *Navigator) Enter() bool {
-	if !n.ensureSelection() {
+	if n.blocked() || !n.ensureSelection() {
 		return false
 	}
 	container := n.currentContainer()
+	if act, ok := container.Item().(Activator); ok {
+		if !act.Activate() {
+			return false
+		}
+		n.notify(NavigatorEventActed)
+		return true
+	}
 	container.SetActive(container.Index())
 	item := container.Item()
 	if item == nil {
@@ -158,6 +191,9 @@ func (n *Navigator) Enter() bool {
 
 // Back deactivates the current widget and unwinds to the parent when possible.
 func (n *Navigator) Back() bool {
+	if n.blocked() {
+		return false
+	}
 	container := n.currentContainer()
 	wasActive := container.Active()
 	container.SetActive(-1)
@@ -251,6 +287,13 @@ func (n *Navigator) ensureSelection() bool {
 }
 
 // currentContainer returns the Navigable instance at the top of the stack.
+// blocked: a modal overlay (a dialog, an open list) is over the root, so
+// focus moves, Enter and Back are refused (review R-TG-1 L5).
+func (n *Navigator) blocked() bool {
+	m, ok := FindOverlayHost(n.stack[0]).(Modal)
+	return ok && m.Modal()
+}
+
 func (n *Navigator) currentContainer() Navigable {
 	return n.stack[n.depth-1]
 }

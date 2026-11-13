@@ -67,6 +67,10 @@ func (o *Overlay) Close(w ui.Widget) {
 }
 
 // Top is the layer receiving commands, or nil.
+// Modal reports a layer open: Navigators below don't move the focus while
+// it is (ui.Modal).
+func (o *Overlay) Modal() bool { return o.n > 0 }
+
 func (o *Overlay) Top() ui.Widget {
 	if o.n == 0 {
 		return nil
