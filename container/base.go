@@ -24,6 +24,10 @@ type Base[T ui.Widget] struct {
 	// not a map keyed by widget: TinyGo hashes non-pointer interface keys by
 	// reflection and allocated on every lookup, every child, every frame)
 	visible []int8 // -1 not drawn yet, 0 hidden, 1 visible
+	// shown[i] is the child visible[i] belongs to: a child replaced in place
+	// (same index, same length) is told as if first drawn, the old one told
+	// it is gone (verify TG-1-postcommit R1)
+	shown []ui.Widget
 
 	paddingX int16
 	paddingY int16
@@ -382,10 +386,13 @@ func (c *Base[T]) clampIndex(a int) int {
 func (c *Base[T]) resetVisibility() {
 	if cap(c.visible) < len(c.Items) {
 		c.visible = make([]int8, len(c.Items))
+		c.shown = make([]ui.Widget, len(c.Items))
 	}
 	c.visible = c.visible[:len(c.Items)]
+	c.shown = c.shown[:len(c.Items)]
 	for j := range c.visible {
 		c.visible[j] = -1
+		c.shown[j] = nil
 	}
 }
 
@@ -394,6 +401,14 @@ func (c *Base[T]) resetVisibility() {
 func (c *Base[T]) setVisibility(i int, item ui.Widget, visible bool) {
 	if len(c.visible) != len(c.Items) { // Items replaced since New
 		c.resetVisibility()
+	}
+	if c.shown[i] != item { // a different child at this index
+		if old := c.shown[i]; old != nil && c.visible[i] == 1 {
+			if handler, ok := old.(ui.VisibleHandler); ok {
+				handler.OnVisible(false)
+			}
+		}
+		c.shown[i], c.visible[i] = item, -1
 	}
 	v := int8(0)
 	if visible {

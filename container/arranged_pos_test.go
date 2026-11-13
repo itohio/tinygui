@@ -85,3 +85,34 @@ func TestZeroSizeContainerNeedsAMeasuringArranger(t *testing.T) {
 				container.WithChildren[ui.Widget](newSpot(10, 4)))
 		})
 }
+
+// seen records the visibility notifications it gets.
+type seen struct {
+	ui.WidgetBase
+	got []bool
+}
+
+func (s *seen) Draw(ui.Context)              {}
+func (s *seen) Interact(ui.UserCommand) bool { return false }
+func (s *seen) OnVisible(v bool)             { s.got = append(s.got, v) }
+
+// A child replaced in place (same index, same number of children) is told it
+// is visible on its first draw, and the child it replaced that it is gone
+// (verify TG-1-postcommit R1: the state was per index and only reset when
+// the length changed, so the new child never heard OnVisible).
+func TestChildReplacedInPlaceGetsOnVisible(t *testing.T) {
+	old, other := &seen{WidgetBase: ui.NewWidgetBase(10, 10)}, &seen{WidgetBase: ui.NewWidgetBase(10, 10)}
+	c := container.New[ui.Widget](100, 20, container.WithLayout[ui.Widget](layout.HList(2)), container.WithChildren[ui.Widget](old, other))
+	ctx := ui.NewContext(nil, 100, 20, 0, 0)
+	c.Draw(&ctx)
+	check.Equal(t, []bool{true}, old.got)
+
+	repl := &seen{WidgetBase: ui.NewWidgetBase(10, 10)}
+	c.Items[0] = repl
+	repl.SetParent(c)
+	c.Draw(&ctx)
+	check.Equal(t, []bool{true}, repl.got, "the new child hears OnVisible(true) on its first draw")
+	check.Equal(t, []bool{true, false}, old.got, "the replaced child hears it is gone")
+	check.Equal(t, []bool{true}, other.got, "the other child hears nothing new")
+	check.Zero(t, testing.AllocsPerRun(20, func() { c.Draw(&ctx) }))
+}
