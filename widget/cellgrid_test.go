@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 )
 
 // canvas is a tiny RGBA framebuffer with the rectangle fast path.
@@ -48,7 +48,7 @@ func TestCellGridRoundDots(t *testing.T) {
 	cells := []uint8{0, 1, 1, 7} // 7 is outside the palette → Off
 	g := NewCellGrid(2, 2, 5, 1, CellRound, cells, []color.RGBA{dim, lit}, off)
 	w, h := g.Size()
-	require.Equal(t, [2]uint16{10, 10}, [2]uint16{w, h})
+	check.Equal(t, [2]uint16{10, 10}, [2]uint16{w, h})
 
 	c := newCanvas(14, 14)
 	for i := range c.px {
@@ -58,23 +58,23 @@ func TestCellGridRoundDots(t *testing.T) {
 	g.Draw(&ctx)
 
 	// cell (0,0) at (2,2): dim dot, corners and gap Off
-	require.Equal(t, dim, c.at(3, 3))
-	require.Equal(t, dim, c.at(2, 3)) // left edge, not a corner
-	require.Equal(t, off, c.at(2, 2)) // corner
-	require.Equal(t, off, c.at(5, 5)) // corner
-	require.Equal(t, off, c.at(6, 3)) // gap column
+	check.Equal(t, dim, c.at(3, 3))
+	check.Equal(t, dim, c.at(2, 3)) // left edge, not a corner
+	check.Equal(t, off, c.at(2, 2)) // corner
+	check.Equal(t, off, c.at(5, 5)) // corner
+	check.Equal(t, off, c.at(6, 3)) // gap column
 	// cell (1,0) at (7,2): lit
-	require.Equal(t, lit, c.at(8, 3))
+	check.Equal(t, lit, c.at(8, 3))
 	// cell (1,1) at (7,7): index out of palette → Off
-	require.Equal(t, off, c.at(8, 8))
+	check.Equal(t, off, c.at(8, 8))
 	// outside the grid untouched
-	require.Equal(t, back, c.at(12, 12))
-	require.Equal(t, back, c.at(1, 1))
+	check.Equal(t, back, c.at(12, 12))
+	check.Equal(t, back, c.at(1, 1))
 
 	// cells are read on every draw
 	cells[0] = 1
 	g.Draw(&ctx)
-	require.Equal(t, lit, c.at(3, 3))
+	check.Equal(t, lit, c.at(3, 3))
 
 	if n := testing.AllocsPerRun(20, func() { g.Draw(&ctx) }); n != 0 {
 		t.Fatalf("Draw allocates %.0f times", n)
@@ -86,9 +86,9 @@ func TestCellGridSquareNoGap(t *testing.T) {
 	c := newCanvas(6, 3)
 	ctx := ui.NewContext(c, 6, 3, 0, 0)
 	g.Draw(&ctx)
-	require.Equal(t, lit, c.at(0, 0)) // square: corners filled
-	require.Equal(t, lit, c.at(2, 2))
-	require.Equal(t, dim, c.at(3, 0)) // second cell starts at x = 3, no gap
+	check.Equal(t, lit, c.at(0, 0)) // square: corners filled
+	check.Equal(t, lit, c.at(2, 2))
+	check.Equal(t, dim, c.at(3, 0)) // second cell starts at x = 3, no gap
 }
 
 // clippedCanvas reports a clip rectangle and counts fill calls.
@@ -115,10 +115,10 @@ func TestCellGridSkipsRowsOutsideClip(t *testing.T) {
 	c := &clippedCanvas{canvas: newCanvas(20, 50), cy: 12, ch: 10} // rows 12..21 → cell rows 2..4
 	ctx := ui.NewContext(c, 20, 50, 0, 0)
 	g.Draw(&ctx)
-	require.Equal(t, 3*4, c.fills, "3 cell rows × 4 cells")
-	require.Equal(t, lit, c.at(0, 12))
-	require.Equal(t, lit, c.at(19, 21))
-	require.Equal(t, color.RGBA{}, c.at(0, 30), "rows outside the clip are not drawn")
+	check.Equal(t, 3*4, c.fills, "3 cell rows × 4 cells")
+	check.Equal(t, lit, c.at(0, 12))
+	check.Equal(t, lit, c.at(19, 21))
+	check.Equal(t, color.RGBA{}, c.at(0, 30), "rows outside the clip are not drawn")
 }
 
 // canvas565 stores RGB565 and takes bitmaps, so CellGrid uses its strip path.
@@ -174,7 +174,7 @@ func TestCellGridStripsMatchRectangles(t *testing.T) {
 		g.Draw(&rctx)
 		g.Draw(&fctx)
 		for i := range ref.px {
-			require.Equalf(t, rgb565(ref.px[i]), fast.bits[i], "pitch %d gap %d shape %d pixel (%d,%d)",
+			check.Equal(t, rgb565(ref.px[i]), fast.bits[i], "pitch %d gap %d shape %d pixel (%d,%d)",
 				tc.pitch, tc.gap, tc.shape, i%30, i/30)
 		}
 		if n := testing.AllocsPerRun(10, func() { g.Draw(&fctx) }); n != 0 {

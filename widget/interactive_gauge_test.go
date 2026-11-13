@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 )
 
 func TestHorizontalInteractiveMultiGaugeCommitAndNavigate(t *testing.T) {
@@ -25,25 +25,25 @@ func TestHorizontalInteractiveMultiGaugeCommitAndNavigate(t *testing.T) {
 	)
 
 	bar.SetSelected(true)
-	require.Equal(t, 0, bar.active)
-	require.True(t, bar.Interact(ui.UP))
-	require.InEpsilon(t, 0.3, bar.pending[0], 0.001)
+	check.Equal(t, 0, bar.active)
+	check.True(t, bar.Interact(ui.UP))
+	inEpsilon(t, 0.3, bar.pending[0], 0.001)
 
-	require.True(t, bar.Interact(ui.ENTER))
-	require.Equal(t, 1, bar.active)
-	require.True(t, bar.Interact(ui.DOWN))
-	require.InEpsilon(t, 0.7, bar.pending[1], 0.001)
+	check.True(t, bar.Interact(ui.ENTER))
+	check.Equal(t, 1, bar.active)
+	check.True(t, bar.Interact(ui.DOWN))
+	inEpsilon(t, 0.7, bar.pending[1], 0.001)
 
-	require.True(t, bar.Interact(ui.LEFT))
-	require.Equal(t, 0, bar.active)
+	check.True(t, bar.Interact(ui.LEFT))
+	check.Equal(t, 0, bar.active)
 
-	require.True(t, bar.Interact(ui.RIGHT))
-	require.Equal(t, 1, bar.active)
+	check.True(t, bar.Interact(ui.RIGHT))
+	check.Equal(t, 1, bar.active)
 
-	require.True(t, bar.Interact(ui.ENTER))
-	require.False(t, bar.Selected())
-	require.InEpsilon(t, 0.3, values[0], 0.001)
-	require.InEpsilon(t, 0.7, values[1], 0.001)
+	check.True(t, bar.Interact(ui.ENTER))
+	check.False(t, bar.Selected())
+	inEpsilon(t, 0.3, values[0], 0.001)
+	inEpsilon(t, 0.7, values[1], 0.001)
 }
 
 func TestHorizontalInteractiveGaugeCancel(t *testing.T) {
@@ -57,10 +57,10 @@ func TestHorizontalInteractiveGaugeCancel(t *testing.T) {
 	)
 
 	gauge.SetSelected(true)
-	require.True(t, gauge.Interact(ui.UP))
-	require.InEpsilon(t, 0.6, gauge.pending, 0.001)
-	require.True(t, gauge.Interact(ui.ESC))
-	require.InEpsilon(t, 0.5, value, 0.001)
+	check.True(t, gauge.Interact(ui.UP))
+	inEpsilon(t, 0.6, gauge.pending, 0.001)
+	check.True(t, gauge.Interact(ui.ESC))
+	inEpsilon(t, 0.5, value, 0.001)
 }
 
 func TestVerticalInteractiveGaugeDisable(t *testing.T) {
@@ -73,5 +73,5 @@ func TestVerticalInteractiveGaugeDisable(t *testing.T) {
 		WithDisabled[float32](),
 	)
 
-	require.False(t, gauge.Interact(ui.UP))
+	check.False(t, gauge.Interact(ui.UP))
 }

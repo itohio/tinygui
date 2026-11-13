@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 	"tinygo.org/x/tinyfont"
 )
 
@@ -30,33 +30,33 @@ func TestInteractiveSelectorCyclesStrings(t *testing.T) {
 	)
 
 	current, ok := selector.Current()
-	require.True(t, ok)
-	require.Equal(t, "Second", current)
+	check.True(t, ok)
+	check.Equal(t, "Second", current)
 
-	require.True(t, selector.Handle(ui.UP))
-	require.Equal(t, 2, idx)
-	require.Equal(t, 2, notifiedIndex)
-	require.Equal(t, "Third", notifiedValue)
+	check.True(t, selector.Handle(ui.UP))
+	check.Equal(t, 2, idx)
+	check.Equal(t, 2, notifiedIndex)
+	check.Equal(t, "Third", notifiedValue)
 
-	require.True(t, selector.Handle(ui.UP))
-	require.Equal(t, 0, idx)
+	check.True(t, selector.Handle(ui.UP))
+	check.Equal(t, 0, idx)
 	current, _ = selector.Current()
-	require.Equal(t, "First", current)
+	check.Equal(t, "First", current)
 
-	require.True(t, selector.Handle(ui.DOWN))
-	require.Equal(t, 2, idx)
+	check.True(t, selector.Handle(ui.DOWN))
+	check.Equal(t, 2, idx)
 }
 
 func TestInteractiveSelectorDisabled(t *testing.T) {
 	items := []string{"Only"}
 	selector := NewInteractiveSelector(items, WithSelectorDisabled[string]())
 
-	require.False(t, selector.Enabled())
-	require.False(t, selector.Handle(ui.UP))
+	check.False(t, selector.Enabled())
+	check.False(t, selector.Handle(ui.UP))
 
 	selector.SetEnabled(true)
-	require.True(t, selector.Enabled())
-	require.True(t, selector.Handle(ui.UP))
+	check.True(t, selector.Enabled())
+	check.True(t, selector.Handle(ui.UP))
 }
 
 func TestInteractiveLabelChoiceUpdatesLabel(t *testing.T) {
@@ -68,12 +68,12 @@ func TestInteractiveLabelChoiceUpdatesLabel(t *testing.T) {
 		WithLabelChoiceColor(color.RGBA{255, 255, 255, 255}),
 	)
 
-	require.Equal(t, "Alpha", choice.currentText())
-	require.True(t, choice.Interact(ui.UP))
-	require.Equal(t, "Beta", choice.currentText())
+	check.Equal(t, "Alpha", choice.currentText())
+	check.True(t, choice.Interact(ui.UP))
+	check.Equal(t, "Beta", choice.currentText())
 
 	ctx := ui.NewContext(mockDisplay{}, 40, 12, 0, 0)
-	require.NotPanics(t, func() { choice.Draw(&ctx) })
+	notPanics(t, func() { choice.Draw(&ctx) })
 }
 
 func TestInteractiveIconChoiceUpdatesImage(t *testing.T) {
@@ -90,11 +90,11 @@ func TestInteractiveIconChoiceUpdatesImage(t *testing.T) {
 		}),
 	)
 
-	require.Equal(t, "icon0", choice.Image())
-	require.True(t, choice.Interact(ui.UP))
-	require.Equal(t, "icon1", choice.Image())
-	require.Equal(t, 1, notifiedIndex)
-	require.Equal(t, "icon1", notifiedValue)
+	check.Equal(t, "icon0", choice.Image())
+	check.True(t, choice.Interact(ui.UP))
+	check.Equal(t, "icon1", choice.Image())
+	check.Equal(t, 1, notifiedIndex)
+	check.Equal(t, "icon1", notifiedValue)
 }
 
 func TestInteractiveWidgetChoiceCyclesWidgets(t *testing.T) {
@@ -102,9 +102,9 @@ func TestInteractiveWidgetChoiceCyclesWidgets(t *testing.T) {
 	choice := NewInteractiveWidgetChoice[*Label](32, 12, widgets)
 	choice.SetSelected(true)
 
-	require.True(t, widgets[0].Selected())
-	require.True(t, choice.Interact(ui.UP))
-	require.True(t, widgets[1].Selected())
+	check.True(t, widgets[0].Selected())
+	check.True(t, choice.Interact(ui.UP))
+	check.True(t, widgets[1].Selected())
 }
 
 // A label choice bound to an index shows that index when something else
@@ -113,10 +113,10 @@ func TestInteractiveWidgetChoiceCyclesWidgets(t *testing.T) {
 func TestLabelChoiceFollowsItsBoundIndex(t *testing.T) {
 	idx := 0
 	c := NewInteractiveLabelChoice(60, 10, []string{"down", "left", "up"}, WithLabelChoiceIndex(&idx))
-	require.Equal(t, "down", c.Label.Text())
+	check.Equal(t, "down", c.Label.Text())
 	idx = 2
-	require.Equal(t, "up", c.Label.Text())
+	check.Equal(t, "up", c.Label.Text())
 	c.Interact(ui.UP) // and editing still writes it back
-	require.Equal(t, 0, idx)
-	require.Equal(t, "down", c.Label.Text())
+	check.Equal(t, 0, idx)
+	check.Equal(t, "down", c.Label.Text())
 }

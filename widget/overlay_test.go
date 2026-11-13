@@ -8,7 +8,6 @@ import (
 	"github.com/itohio/tinygui/container"
 	"github.com/itohio/tinygui/internal/check"
 	"github.com/itohio/tinygui/widget"
-	"github.com/stretchr/testify/require"
 	"tinygo.org/x/tinyfont"
 )
 
@@ -49,15 +48,15 @@ func TestDialogIsModalAndReportsTheChoice(t *testing.T) {
 	chosen, cancelled := -1, false
 	d := widget.NewDialog(style, "Reset?", []string{"All demos restart."}, []string{"Yes", "No"},
 		func(i int) { chosen = i }, func() { cancelled = true })
-	require.True(t, o.OpenCentered(d))
+	check.True(t, o.OpenCentered(d))
 	o.Interact(ui.RIGHT)
-	require.Empty(t, base.got)
+	check.Empty(t, base.got)
 	o.Interact(ui.ENTER)
-	require.Equal(t, 1, chosen)
-	require.False(t, cancelled)
-	require.Nil(t, o.Top())
+	check.Equal(t, 1, chosen)
+	check.False(t, cancelled)
+	check.Nil(t, o.Top())
 	o.Interact(ui.DOWN) // closed: commands reach the base again
-	require.Equal(t, []ui.UserCommand{ui.DOWN}, base.got)
+	check.Equal(t, []ui.UserCommand{ui.DOWN}, base.got)
 }
 
 func TestDialogCancelAndPopup(t *testing.T) {
@@ -67,14 +66,14 @@ func TestDialogCancelAndPopup(t *testing.T) {
 	o.OpenCentered(choice)
 	o.Interact(ui.DOWN)
 	o.Interact(ui.BACK)
-	require.Equal(t, 1, cancelled)
-	require.Nil(t, o.Top())
+	check.Equal(t, 1, cancelled)
+	check.Nil(t, o.Top())
 
 	popup := widget.NewDialog(style, "About", []string{"tinygui"}, nil, nil, func() { cancelled++ })
 	o.OpenCentered(popup)
 	o.Interact(ui.ENTER)
-	require.Equal(t, 2, cancelled)
-	require.Nil(t, o.Top())
+	check.Equal(t, 2, cancelled)
+	check.Nil(t, o.Top())
 }
 
 // A callback may open the next dialog: the first one is closed by then.
@@ -84,7 +83,7 @@ func TestDialogCallbackOpensAnotherDialog(t *testing.T) {
 	first := widget.NewDialog(style, "Go?", nil, []string{"OK"}, func(int) { o.OpenCentered(second) }, nil)
 	o.OpenCentered(first)
 	o.Interact(ui.ENTER)
-	require.Equal(t, ui.Widget(second), o.Top())
+	check.Equal(t, ui.Widget(second), o.Top())
 }
 
 func TestOverlayCloseDropsLayersAbove(t *testing.T) {
@@ -94,11 +93,11 @@ func TestOverlayCloseDropsLayersAbove(t *testing.T) {
 	o.Open(a, 0, 0)
 	o.Open(b, 0, 0)
 	o.Close(a)
-	require.Nil(t, o.Top())
+	check.Nil(t, o.Top())
 	for range container.MaxOverlays {
-		require.True(t, o.Open(widget.NewDialog(style, "x", nil, nil, nil, nil), 0, 0))
+		check.True(t, o.Open(widget.NewDialog(style, "x", nil, nil, nil, nil), 0, 0))
 	}
-	require.False(t, o.Open(a, 0, 0))
+	check.False(t, o.Open(a, 0, 0))
 }
 
 // The dropdown opens its list under itself, or above when the host has no
@@ -110,32 +109,32 @@ func TestDropdownOpensNextToItselfAndChooses(t *testing.T) {
 	o := container.NewOverlay(page)
 	ctx := ui.NewContext(nopDisplay{200, 100}, 200, 100, 0, 0)
 
-	require.False(t, widget.NewDropdown(60, style, []string{"a"}, &idx, nil).Open(), "no host")
+	check.False(t, widget.NewDropdown(60, style, []string{"a"}, &idx, nil).Open(), "no host")
 
 	page.Draw(&ctx) // the dropdown learns where it is: (0, 0), 12 tall
-	require.True(t, dd.Open())
+	check.True(t, dd.Open())
 	o.Interact(ui.DOWN)
 	o.Interact(ui.DOWN)
 	o.Interact(ui.ENTER)
-	require.Equal(t, 2, idx)
-	require.Equal(t, "x4", changed)
-	require.Nil(t, o.Top())
+	check.Equal(t, 2, idx)
+	check.Equal(t, "x4", changed)
+	check.Nil(t, o.Top())
 
 	dd.Open()
 	o.Interact(ui.UP)
 	o.Interact(ui.BACK)
-	require.Equal(t, 2, idx, "BACK keeps the choice")
+	check.Equal(t, 2, idx, "BACK keeps the choice")
 
 	// near the bottom (y 80, 12 tall) the 32-px list doesn't fit below:
 	// it opens upwards, at y = 80 - 32 = 48
 	rec := &fillRecorder{nopDisplay: nopDisplay{200, 100}}
 	low := ui.NewContext(rec, 200, 100, 0, 80)
 	page.Draw(&low)
-	require.True(t, dd.Open())
+	check.True(t, dd.Open())
 	rec.fills = nil
 	at := ui.NewContext(rec, 200, 100, 0, 0)
 	o.Draw(&at)
-	require.Contains(t, rec.fills, [4]int16{0, 48, 60, 32}, "list background")
+	check.Contains(t, rec.fills, [4]int16{0, 48, 60, 32}, "list background")
 }
 
 // fillRecorder records filled rectangles (x, y, w, h).
@@ -158,22 +157,34 @@ func TestDropdownClampsItsIndexAndNeedsOptions(t *testing.T) {
 	page := container.New[ui.Widget](200, 100, container.WithChildren[ui.Widget](dd))
 	o := container.NewOverlay(page)
 	page.Draw(&ctx)
-	require.True(t, dd.Open())
-	require.NotPanics(t, func() { o.Interact(ui.ENTER) })
-	require.Equal(t, 1, idx)
+	check.True(t, dd.Open())
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("unexpected panic: %v", r)
+			}
+		}()
+		o.Interact(ui.ENTER)
+	}()
+	check.Equal(t, 1, idx)
 
 	empty := 0
 	none := widget.NewDropdown(60, style, nil, &empty, nil)
 	page2 := container.New[ui.Widget](200, 100, container.WithChildren[ui.Widget](none))
 	o2 := container.NewOverlay(page2)
 	page2.Draw(&ctx)
-	require.False(t, none.Open())
-	require.NotPanics(t, func() {
+	check.False(t, none.Open())
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("unexpected panic: %v", r)
+			}
+		}()
 		none.Interact(ui.ENTER)
 		o2.Interact(ui.DOWN)
 		o2.Interact(ui.ENTER)
-	})
-	require.Nil(t, o2.Top())
+	}()
+	check.Nil(t, o2.Top())
 }
 
 // A list that fits neither below nor above the dropdown stays on screen
@@ -186,7 +197,7 @@ func TestDropdownListStaysOnScreen(t *testing.T) {
 	rec := &fillRecorder{nopDisplay: nopDisplay{200, 100}}
 	mid := ui.NewContext(rec, 200, 100, 0, 50) // the dropdown at y 50, 12 tall
 	page.Draw(&mid)
-	require.True(t, dd.Open())
+	check.True(t, dd.Open())
 	rec.fills = nil
 	at := ui.NewContext(rec, 200, 100, 0, 0)
 	o.Draw(&at)
@@ -194,11 +205,11 @@ func TestDropdownListStaysOnScreen(t *testing.T) {
 	for _, f := range rec.fills {
 		if f[2] == 60 && f[3] == 92 { // the list's background
 			found = true
-			require.GreaterOrEqual(t, f[1], int16(0))
-			require.LessOrEqual(t, f[1]+f[3], int16(100))
+			check.GreaterOrEqual(t, f[1], int16(0))
+			check.LessOrEqual(t, f[1]+f[3], int16(100))
 		}
 	}
-	require.True(t, found, "list background drawn")
+	check.True(t, found, "list background drawn")
 }
 
 // A dialog kept and opened again (no allocation per opening) starts at its
@@ -215,9 +226,9 @@ func TestReopenedDialogStartsAtTheFirstOption(t *testing.T) {
 	o.Interact(ui.DOWN)
 	o.Interact(ui.BACK)
 	o.OpenCentered(d)
-	require.Equal(t, 0, d.Choice())
+	check.Equal(t, 0, d.Choice())
 	o.Interact(ui.ENTER)
-	require.Equal(t, []int{2, 0}, chosen)
+	check.Equal(t, []int{2, 0}, chosen)
 }
 
 // A dialog closed by its host, not by its own keys (Overlay.Close on it, or
@@ -244,3 +255,17 @@ func TestDialogClosedByHostReopensAtTheFirstOption(t *testing.T) {
 	o.Interact(ui.ENTER)
 	check.Equal(t, []int{0}, chosen)
 }
+
+// drawSpy records its name when drawn.
+type drawSpy struct {
+	ui.WidgetBase
+	name  string
+	order *[]string
+}
+
+func newDrawSpy(name string, order *[]string) *drawSpy {
+	return &drawSpy{WidgetBase: ui.NewWidgetBase(10, 10), name: name, order: order}
+}
+
+func (s *drawSpy) Draw(ui.Context) { *s.order = append(*s.order, s.name) }
+

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 )
 
 func TestToggleInteract(t *testing.T) {
@@ -23,12 +23,12 @@ func TestToggleInteract(t *testing.T) {
 		func(v bool) { state = v },
 	)
 
-	require.False(t, state)
-	require.True(t, toggle.Interact(ui.ENTER))
-	require.True(t, state)
-	require.True(t, toggle.Interact(ui.RIGHT))
-	require.False(t, state)
-	require.True(t, toggle.Interact(ui.ESC))
+	check.False(t, state)
+	check.True(t, toggle.Interact(ui.ENTER))
+	check.True(t, state)
+	check.True(t, toggle.Interact(ui.RIGHT))
+	check.False(t, state)
+	check.True(t, toggle.Interact(ui.ESC))
 }
 
 func TestToggleDrawHandlesNilDisplay(t *testing.T) {
@@ -46,5 +46,5 @@ func TestToggleDrawHandlesNilDisplay(t *testing.T) {
 	)
 
 	ctx := ui.NewContext(nil, 16, 10, 0, 0)
-	require.NotPanics(t, func() { toggle.Draw(&ctx) })
+	notPanics(t, func() { toggle.Draw(&ctx) })
 }

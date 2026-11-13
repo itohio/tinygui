@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 )
 
 // bitmapRecorder keeps the last RGB565 bitmap blit and counts blits.
@@ -39,7 +39,9 @@ func testPNG(t *testing.T, w, h int, c color.RGBA) string {
 	}
 	img.SetRGBA(w-1, h-1, color.RGBA{0, 0, 255, 255}) // one distinct corner pixel
 	var b bytes.Buffer
-	require.NoError(t, png.Encode(&b, img))
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return b.String()
 }
 
@@ -55,14 +57,14 @@ func TestIconDrawsDecodedPixels(t *testing.T) {
 	icon.Draw(&ctx)
 	icon.Draw(&ctx)
 
-	require.Equal(t, 2, rec.blits, "one blit per draw")
-	require.Equal(t, [4]int16{5, 6, 4, 3}, [4]int16{rec.x, rec.y, rec.w, rec.h})
-	require.Equal(t, uint16(0xF800), rec.pixels[0], "red in RGB565")
-	require.Equal(t, uint16(0x001F), rec.pixels[len(rec.pixels)-1], "blue corner")
-	require.Equal(t, 1, icon.decodes, "decoded once for two draws")
+	check.Equal(t, 2, rec.blits, "one blit per draw")
+	check.Equal(t, [4]int16{5, 6, 4, 3}, [4]int16{rec.x, rec.y, rec.w, rec.h})
+	check.Equal(t, uint16(0xF800), rec.pixels[0], "red in RGB565")
+	check.Equal(t, uint16(0x001F), rec.pixels[len(rec.pixels)-1], "blue corner")
+	check.Equal(t, 1, icon.decodes, "decoded once for two draws")
 
 	icon.SetImage(green)
 	icon.Draw(&ctx)
-	require.Equal(t, uint16(0x07E0), rec.pixels[0], "green after SetImage")
-	require.Equal(t, 2, icon.decodes)
+	check.Equal(t, uint16(0x07E0), rec.pixels[0], "green after SetImage")
+	check.Equal(t, 2, icon.decodes)
 }

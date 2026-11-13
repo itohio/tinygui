@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 )
 
 func TestInteractiveIconCyclesAndNotifies(t *testing.T) {
@@ -15,34 +15,34 @@ func TestInteractiveIconCyclesAndNotifies(t *testing.T) {
 		changed = i
 	}))
 
-	require.Equal(t, 1, idx)
-	require.Equal(t, "icon1", widget.Image())
+	check.Equal(t, 1, idx)
+	check.Equal(t, "icon1", widget.Image())
 
 	ctx := ui.NewContext(mockDisplay{}, 16, 16, 0, 0)
-	require.NotPanics(t, func() { widget.Draw(&ctx) })
+	notPanics(t, func() { widget.Draw(&ctx) })
 
-	require.True(t, widget.Interact(ui.UP))
-	require.Equal(t, 2, idx)
-	require.Equal(t, 2, changed)
-	require.Equal(t, "icon2", widget.Image())
+	check.True(t, widget.Interact(ui.UP))
+	check.Equal(t, 2, idx)
+	check.Equal(t, 2, changed)
+	check.Equal(t, "icon2", widget.Image())
 
-	require.True(t, widget.Interact(ui.UP))
-	require.Equal(t, 0, idx)
-	require.Equal(t, 0, changed)
-	require.Equal(t, "icon0", widget.Image())
+	check.True(t, widget.Interact(ui.UP))
+	check.Equal(t, 0, idx)
+	check.Equal(t, 0, changed)
+	check.Equal(t, "icon0", widget.Image())
 
-	require.True(t, widget.Interact(ui.DOWN))
-	require.Equal(t, 2, idx)
+	check.True(t, widget.Interact(ui.DOWN))
+	check.Equal(t, 2, idx)
 }
 
 func TestInteractiveIconDisabled(t *testing.T) {
 	icons := []string{"icon0"}
 	widget := NewInteractiveIcon(16, 16, icons, WithIconDisabled())
 
-	require.False(t, widget.Enabled())
-	require.False(t, widget.Interact(ui.UP))
+	check.False(t, widget.Enabled())
+	check.False(t, widget.Interact(ui.UP))
 
 	widget.SetEnabled(true)
-	require.True(t, widget.Enabled())
-	require.True(t, widget.Interact(ui.UP))
+	check.True(t, widget.Enabled())
+	check.True(t, widget.Interact(ui.UP))
 }

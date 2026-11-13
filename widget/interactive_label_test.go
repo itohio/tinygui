@@ -9,7 +9,6 @@ import (
 
 	ui "github.com/itohio/tinygui"
 	"github.com/itohio/tinygui/internal/check"
-	"github.com/stretchr/testify/require"
 	"tinygo.org/x/tinyfont"
 )
 
@@ -26,27 +25,27 @@ func TestInteractiveLabelAdjustCommitAndCancel(t *testing.T) {
 	)
 
 	label.SetSelected(true)
-	require.True(t, label.Selected())
-	require.InEpsilon(t, 1.5, label.pending, 0.001)
+	check.True(t, label.Selected())
+	inEpsilon(t, 1.5, label.pending, 0.001)
 
-	require.True(t, label.Interact(ui.UP))
-	require.InEpsilon(t, 1.6, label.pending, 0.001)
+	check.True(t, label.Interact(ui.UP))
+	inEpsilon(t, 1.6, label.pending, 0.001)
 
-	require.True(t, label.Interact(ui.LONG_UP))
-	require.InEpsilon(t, 2.1, label.pending, 0.001)
+	check.True(t, label.Interact(ui.LONG_UP))
+	inEpsilon(t, 2.1, label.pending, 0.001)
 
 	// Commit and ensure setter invoked.
-	require.True(t, label.Interact(ui.ENTER))
-	require.InEpsilon(t, 2.1, committed, 0.001)
-	require.InEpsilon(t, 2.1, value, 0.001)
-	require.False(t, label.Selected())
+	check.True(t, label.Interact(ui.ENTER))
+	inEpsilon(t, 2.1, committed, 0.001)
+	inEpsilon(t, 2.1, value, 0.001)
+	check.False(t, label.Selected())
 
 	// Re-select and cancel.
 	label.SetSelected(true)
-	require.True(t, label.Interact(ui.DOWN))
-	require.InEpsilon(t, 2.0, label.pending, 0.001)
-	require.True(t, label.Interact(ui.ESC))
-	require.InEpsilon(t, 2.1, value, 0.001) // unchanged
+	check.True(t, label.Interact(ui.DOWN))
+	inEpsilon(t, 2.0, label.pending, 0.001)
+	check.True(t, label.Interact(ui.ESC))
+	inEpsilon(t, 2.1, value, 0.001) // unchanged
 }
 
 func TestInteractiveLabelDisable(t *testing.T) {
@@ -60,8 +59,8 @@ func TestInteractiveLabelDisable(t *testing.T) {
 		WithDisabled[float32](),
 	)
 
-	require.False(t, label.Interact(ui.UP))
-	require.Equal(t, float32(0), label.pending)
+	check.False(t, label.Interact(ui.UP))
+	check.Equal(t, float32(0), label.pending)
 }
 
 // The label shows its bound value when that value changes elsewhere (a
@@ -72,15 +71,17 @@ func TestInteractiveLabelFollowsItsBoundValue(t *testing.T) {
 	label := NewInteractiveLabel[int](64, 12, WithValue(&value), WithRange[int](10, 100), WithSteps[int](5, 25),
 		WithFont[int](&tinyfont.TomThumb))
 	value = 60
-	require.Equal(t, "60", label.displayText())
+	check.Equal(t, "60", label.displayText())
 	value = 200
-	require.Equal(t, "100", label.displayText(), "clamped to the range")
+	check.Equal(t, "100", label.displayText(), "clamped to the range")
 
 	value = 60
 	label.SetSelected(true) // editing
 	label.Interact(ui.UP)
 	value = 30 // changed elsewhere mid-edit: the edit wins on screen
-	require.Contains(t, label.displayText(), "65")
+	if s := label.displayText(); !strings.Contains(s, "65") {
+		t.Fatalf("%q does not contain %q", s, "65")
+	}
 }
 
 // The label formats its number like fmt's %v, marks it while selected, and
@@ -101,13 +102,13 @@ func TestInteractiveLabelTextWithoutAllocating(t *testing.T) {
 		{il.displayText, fmt.Sprintf("%v", n)},
 		{ul.displayText, fmt.Sprintf("%v", u)},
 	} {
-		require.Equal(t, c.want, c.got())
+		check.Equal(t, c.want, c.got())
 	}
 	f = 0.1
-	require.Equal(t, fmt.Sprintf("%v", f), fl.displayText(), "float32 shortest form, as fmt prints it")
+	check.Equal(t, fmt.Sprintf("%v", f), fl.displayText(), "float32 shortest form, as fmt prints it")
 	fl.SetSelected(true)
-	require.Equal(t, "▲ "+fmt.Sprintf("%v", f)+" ▼", fl.displayText())
-	require.Zero(t, testing.AllocsPerRun(100, func() { _ = fl.displayText(); _ = il.displayText() }))
+	check.Equal(t, "▲ "+fmt.Sprintf("%v", f)+" ▼", fl.displayText())
+	check.Zero(t, testing.AllocsPerRun(100, func() { _ = fl.displayText(); _ = il.displayText() }))
 }
 
 // The text path's corners (verify TG-1-postcommit R11): negative numbers;
