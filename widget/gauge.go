@@ -196,7 +196,7 @@ func (g *MultiGauge[T]) drawHorizontal(ctx ui.Context) {
 
 	vals := *g.Values
 	total := g.total(vals)
-	acc, cumulative := 0.0, int16(0)
+	acc, cumulative := float32(0), int16(0)
 	for i, v := range vals {
 		end := g.segmentEnd(v, &acc, total, cumulative, width-2)
 		segWidth := end - cumulative
@@ -242,7 +242,7 @@ func (g *MultiGauge[T]) drawVertical(ctx ui.Context) {
 
 	vals := *g.Values
 	total := g.total(vals)
-	acc, cumulative := 0.0, int16(0)
+	acc, cumulative := float32(0), int16(0)
 	for i, v := range vals {
 		end := g.segmentEnd(v, &acc, total, cumulative, height-2)
 		segHeight := end - cumulative
@@ -267,15 +267,16 @@ func (g *MultiGauge[T]) drawVertical(ctx ui.Context) {
 	}
 }
 
-// total is the sum of the positive values (Shares only).
-func (g *MultiGauge[T]) total(vals []T) float64 {
+// total is the sum of the positive values (Shares only), in float32: no
+// soft-float double math per draw on the RP2040.
+func (g *MultiGauge[T]) total(vals []T) float32 {
 	if !g.Shares {
 		return 0
 	}
-	s := 0.0
+	var s float32
 	for _, v := range vals {
 		if v > 0 {
-			s += float64(v)
+			s += float32(v)
 		}
 	}
 	return s
@@ -283,19 +284,20 @@ func (g *MultiGauge[T]) total(vals []T) float64 {
 
 // segmentEnd is where the segment of v, starting at start, ends along a bar
 // n pixels long (never past it). With Shares it is placed from the running
-// sum acc (updated here), so rounding leaves no gaps and the last segment
-// ends at n exactly.
-func (g *MultiGauge[T]) segmentEnd(v T, acc *float64, total float64, start, n int16) int16 {
+// sum acc (updated here), so rounding leaves no gaps; acc adds the same
+// values in the same order as total, so after the last positive value it
+// equals total exactly and that segment ends at n.
+func (g *MultiGauge[T]) segmentEnd(v T, acc *float32, total float32, start, n int16) int16 {
 	if !g.Shares {
 		return min(start+position(g.Min, g.Max, clamp(g.Min, g.Max, v), n), n)
 	}
 	if v > 0 {
-		*acc += float64(v)
+		*acc += float32(v)
 	}
 	if total <= 0 {
 		return start
 	}
-	return min(int16(*acc/total*float64(n)+0.5), n)
+	return min(int16(*acc/total*float32(n)+0.5), n)
 }
 
 func isZeroColor(c color.RGBA) bool {

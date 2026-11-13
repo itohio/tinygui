@@ -72,10 +72,17 @@ func NewDialog(style OverlayStyle, title string, lines, options []string, onChoo
 // Selected option index.
 func (d *Dialog) Choice() int { return d.sel }
 
-// close leaves the overlay and resets the selection, so a dialog kept and
-// opened again starts at its first option (no allocation per opening).
-func (d *Dialog) close() {
+// SetParent is called by the host when it opens the dialog
+// (container.Overlay.Open); the selection starts at the first option on
+// every opening, however the dialog was closed last time (its own keys, the
+// host closing it or a layer below it). No allocation per opening.
+func (d *Dialog) SetParent(p ui.Widget) {
 	d.sel = 0
+	d.WidgetBase.SetParent(p)
+}
+
+// close leaves the overlay.
+func (d *Dialog) close() {
 	if h := ui.FindOverlayHost(d); h != nil {
 		h.Close(d)
 	}

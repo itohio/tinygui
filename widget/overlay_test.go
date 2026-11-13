@@ -6,6 +6,7 @@ import (
 
 	ui "github.com/itohio/tinygui"
 	"github.com/itohio/tinygui/container"
+	"github.com/itohio/tinygui/internal/check"
 	"github.com/itohio/tinygui/widget"
 	"github.com/stretchr/testify/require"
 	"tinygo.org/x/tinyfont"
@@ -217,4 +218,29 @@ func TestReopenedDialogStartsAtTheFirstOption(t *testing.T) {
 	require.Equal(t, 0, d.Choice())
 	o.Interact(ui.ENTER)
 	require.Equal(t, []int{2, 0}, chosen)
+}
+
+// A dialog closed by its host, not by its own keys (Overlay.Close on it, or
+// on a layer below it), still reopens at its first option.
+func TestDialogClosedByHostReopensAtTheFirstOption(t *testing.T) {
+	o, _, _ := newHost()
+	var chosen []int
+	d := widget.NewDialog(style, "Demos", nil, []string{"Pause", "Reset", "About"}, func(i int) { chosen = append(chosen, i) }, nil)
+	o.OpenCentered(d)
+	o.Interact(ui.DOWN)
+	o.Close(d)
+	o.OpenCentered(d)
+	check.Equal(t, 0, d.Choice(), "after Overlay.Close(d)")
+
+	below := widget.NewDialog(style, "Menu", nil, []string{"OK"}, nil, nil)
+	o.Close(d)
+	o.OpenCentered(below)
+	o.OpenCentered(d)
+	o.Interact(ui.DOWN)
+	o.Interact(ui.DOWN)
+	o.Close(below)
+	o.OpenCentered(d)
+	check.Equal(t, 0, d.Choice(), "after a layer below closed")
+	o.Interact(ui.ENTER)
+	check.Equal(t, []int{0}, chosen)
 }
