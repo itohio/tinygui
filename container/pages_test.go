@@ -31,13 +31,13 @@ func newPagesFixture(n, keep, history int) *pagesFixture {
 			return &pageWidget{WidgetBase: ui.NewWidgetBase(10, 10)}
 		}}
 	}
-	f.pages = container.NewPages(10, 10, specs, container.PagesConfig{Keep: keep, History: history,
-		OnRelease: func(i int, w ui.Widget) {
+	f.pages = container.NewPages(10, 10, specs, container.WithKeep(keep), container.WithHistory(history),
+		container.WithOnRelease(func(i int, w ui.Widget) {
 			if w == nil {
 				panic("OnRelease with no widget")
 			}
 			f.released = append(f.released, i)
-		}})
+		}))
 	return f
 }
 
@@ -143,4 +143,35 @@ func TestPagesBuildAllUpFront(t *testing.T) {
 // release them: it panics instead (a setup mistake).
 func TestPagesBuildAllNeedsRoomForEveryPage(t *testing.T) {
 	check.Panics(t, func() { newPagesFixture(5, 3, 4).pages.BuildAll() })
+}
+
+// With no options Pages keeps every page (the GC-free default; WithKeep
+// lowers it): BuildAll succeeds, and walking every page twice afterwards,
+// drawing each, builds nothing again and allocates nothing — counted
+// exactly from right after BuildAll, not averaged.
+func TestPagesDefaultKeepsEveryPage(t *testing.T) {
+	const n = 5
+	builds := make([]int, n)
+	specs := make([]container.PageSpec, n)
+	for i := range specs {
+		specs[i] = container.PageSpec{Name: string(rune('A' + i)), Build: func() ui.Widget {
+			builds[i]++
+			return &pageWidget{WidgetBase: ui.NewWidgetBase(10, 10)}
+		}}
+	}
+	p := container.NewPages(10, 10, specs)
+	p.BuildAll() // panics when the default keeps fewer than every page
+	check.Equal(t, n, p.Built())
+	ctx := ui.NewContext(nil, 10, 10, 0, 0)
+	m0 := mallocCount()
+	for range 2 {
+		for i := range n {
+			p.Show(i)
+			p.Draw(&ctx)
+		}
+	}
+	allocs := mallocCount() - m0
+	check.Equal(t, uint64(0), allocs, "allocations walking built pages")
+	check.Equal(t, []int{1, 1, 1, 1, 1}, builds, "each page built once")
+	check.Equal(t, n, p.Built())
 }

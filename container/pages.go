@@ -8,18 +8,38 @@ type PageSpec struct {
 	Build func() ui.Widget
 }
 
-// PagesConfig sets how much Pages keeps.
-type PagesConfig struct {
-	// Keep is how many built pages stay in memory (at least 1: the one
-	// shown); showing another page beyond that releases the least recently
-	// shown one.
-	Keep int
-	// History is how many pages Back can return through (oldest dropped).
-	History int
-	// OnRelease, if set, is called with a page's index and widget when Pages
-	// drops it, before its reference is cleared: the place to drop the
-	// app's own references so the page can be collected.
-	OnRelease func(i int, w ui.Widget)
+// PagesOption customises NewPages.
+type PagesOption func(*pagesConfig)
+
+type pagesConfig struct {
+	keep, history int
+	onRelease     func(int, ui.Widget)
+}
+
+// WithKeep sets how many built pages stay in memory (at least 1: the one
+// shown). The default keeps every page: once built a page is never built
+// again, so with BuildAll in setup nothing is built (allocated) later — the
+// choice for an app that runs without a GC, at the cost of every page
+// resident. Lower it to save memory: showing a page beyond n releases the
+// least recently shown one, and showing a released page builds it again
+// (the app's Build allocates every time; refapp
+// TestPagesWithoutGCNeedEveryPageKept), and BuildAll needs n ≥ the page
+// count.
+func WithKeep(n int) PagesOption {
+	return func(c *pagesConfig) { c.keep = max(n, 1) }
+}
+
+// WithHistory sets how many pages Back can return through (oldest dropped;
+// default 8, at least 1).
+func WithHistory(n int) PagesOption {
+	return func(c *pagesConfig) { c.history = max(n, 1) }
+}
+
+// WithOnRelease sets fn to be called with a page's index and widget when
+// Pages drops it, before its reference is cleared: the place to drop the
+// app's own references so the page can be collected.
+func WithOnRelease(fn func(i int, w ui.Widget)) PagesOption {
+	return func(c *pagesConfig) { c.onRelease = fn }
 }
 
 // Pages shows one page out of many and manages their memory: each page is
@@ -41,16 +61,21 @@ type Pages struct {
 }
 
 // NewPages makes a w×h page area over specs; nothing is built until Show.
-func NewPages(w, h uint16, specs []PageSpec, cfg PagesConfig) *Pages {
-	keep := max(cfg.Keep, 1)
+// By default every page is kept once built (WithKeep) and Back returns
+// through 8 pages (WithHistory).
+func NewPages(w, h uint16, specs []PageSpec, opts ...PagesOption) *Pages {
+	cfg := pagesConfig{keep: max(len(specs), 1), history: 8}
+	for _, o := range opts {
+		o(&cfg)
+	}
 	return &Pages{
 		WidgetBase: ui.NewWidgetBase(w, h),
 		specs:      specs,
 		built:      make([]ui.Widget, len(specs)),
-		recent:     make([]int, 0, keep),
-		hist:       make([]int, max(cfg.History, 1)),
+		recent:     make([]int, 0, cfg.keep),
+		hist:       make([]int, cfg.history),
 		cur:        -1,
-		onRelease:  cfg.OnRelease,
+		onRelease:  cfg.onRelease,
 	}
 }
 
@@ -77,9 +102,10 @@ func (p *Pages) Page(i int) ui.Widget { return p.built[i] }
 // Built is how many pages are built now (at most Keep).
 func (p *Pages) Built() int { return len(p.recent) }
 
-// BuildAll builds every page now (call it in setup, with Keep at least the
-// page count): showing pages later builds and allocates nothing. Pages
-// that are already built stay as they are; nothing is shown.
+// BuildAll builds every page now (call it in setup; it needs the default
+// Keep or WithKeep at least the page count): showing pages later builds and
+// allocates nothing. Pages that are already built stay as they are; nothing
+// is shown.
 func (p *Pages) BuildAll() {
 	if cap(p.recent) < len(p.specs) {
 		panic("container.Pages.BuildAll: Keep is smaller than the page count")

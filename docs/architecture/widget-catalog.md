@@ -60,7 +60,7 @@ Options: interactive numeric widgets share `InteractiveOption[T]` (`widget/inter
 | `Scroll` | `container/scroll.go:9-171` | `Base[ui.Widget]` + offsets; content size measured once at construction (`:88-98`); draws only intersecting children (`:121-142`); observers |
 | `ScrollObserver` / `ScrollChange` | `container/events.go:5-16` | observer interface and event (offset delta + absolute offset) that `Scroll` sends to registered observers; only `Scroll` emits scroll events (also to children implementing `ui.ScrollHandler`) |
 | `ScrollChoice` | `container/choice.go` | `Scroll` + `InteractiveSelector`; keeps the focused child visible by re-measuring the layout from the first child with a cursor it keeps (F-41) |
-| `Pages` | `container/pages.go` | one page of many shown; pages built on demand from `PageSpec{Name, Build}`, at most `Keep` built (least recently shown released, `OnRelease`), bounded `History` for `Back`; `BuildAll` builds every page in setup (nothing built or allocated later); no allocation after construction |
+| `Pages` | `container/pages.go` | one page of many shown; `NewPages(w, h, specs, opts...)`, pages built on demand from `PageSpec{Name, Build}`; `WithKeep(n)` limits how many stay built (default: every page; fewer releases the least recently shown, `WithOnRelease`, and rebuilds allocate), `WithHistory(n)` bounds `Back` (default 8); `BuildAll` builds every page in setup (nothing built or allocated later); no allocation after construction |
 | `Overlay` | `container/overlay.go` | up to `MaxOverlays` (4) modal layers (popups, dialogs, dropdown lists) over a base |
 
 ## Layouts

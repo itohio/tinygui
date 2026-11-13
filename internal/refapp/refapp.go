@@ -108,7 +108,7 @@ func New() *App {
 		{Name: "Overlays", Build: a.pageOverlays},
 	}
 	a.navs = make([]*ui.Navigator, len(specs))
-	a.pages = container.NewPages(W, H-14, specs, container.PagesConfig{Keep: len(specs), History: 8})
+	a.pages = container.NewPages(W, H-14, specs) // default: every page kept (BuildAll, GC-free)
 	header := widget.NewLabel(W, 12, font, func() string { return "TinyGUI reference" }, fg)
 	a.root = container.New[ui.Widget](W, H,
 		container.WithLayout[ui.Widget](layout.VList(2)),
