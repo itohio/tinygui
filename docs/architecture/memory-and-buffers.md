@@ -44,28 +44,37 @@ The library has no static RAM except the 1 536 B PNG line buffer, linked only wi
 | Command line buffer | mux, `make([]byte, 0, 128)`, grows with `append` beyond 128 | mux | `mux.go:23`, `:55`, `:69` |
 | Navigator stack/observers | navigator slices, grow with depth/observers | navigator | `navigator.go:40-59` |
 
-## Heap allocations: none after setup (owner rule, enforced)
+## Heap allocations
 
-Owner, 2026-11-12: "tinygui itself should be 0 allocations (setup does not count)"; it must run with the garbage collector disabled. App code may allocate; the library may not, on any path: draw, input, navigation, pages, layout, overlays, animation, text.
+None after setup — owner, 2026-11-12: "tinygui itself should be 0 allocations (setup does not count)"; it must run with the garbage collector disabled. App code may allocate; the library may not on the paths its users exercise: draw, input, navigation, pages, layout, overlays, animation, text.
 
-Enforced by `internal/refapp` (plain `testing`, so TinyGo runs it):
+What is checked, all in `internal/refapp` (plain `testing`, so TinyGo runs it too). **How allocations are counted matters:** TinyGo's default host GC (Boehm) reports `runtime.ReadMemStats().Mallocs = 0`, but every TinyGo collector keeps the runtime's own `runtime.mallocs` counter (the one TinyGo's `testing.AllocsPerRun` reads). The tests count with `mallocs()` (`mallocs_tinygo_test.go`: `runtime.mallocs` through `//go:linkname`; `mallocs_gc_test.go` on Go, below), so they run, and count exactly, under plain `tinygo test`, `-gc=leaking` and `go test`. `needMallocCount` fails a test (`t.Fatal`, no skip) if a probe allocation isn't counted. `go test ./internal/refapp` also runs `tinygo test -gc=leaking` itself when `tinygo` is on PATH (`TestTinyGoCountsNoAllocations`), so a TinyGo-only allocation fails a plain `go test`.
 
-**How allocations are counted matters:** TinyGo's default host GC (Boehm) reports `runtime.ReadMemStats().Mallocs = 0`, but every TinyGo collector keeps the runtime's own `runtime.mallocs` counter (the one TinyGo's `testing.AllocsPerRun` reads). The tests count with `mallocs()` (`mallocs_tinygo_test.go`: `runtime.mallocs` through `//go:linkname`; `mallocs_gc_test.go` on Go, below), so they run, and count exactly, under plain `tinygo test`, `-gc=leaking` and `go test`. `needMallocCount` fails a test (`t.Fatal`, no skip) if a probe allocation isn't counted.
+Measured (TinyGo 0.43, Go 1.27, 2026-11-13: 10 kept `new([16]byte)` appended to a slice, then `AllocsPerRun` of one `new`):
 
-Measured (TinyGo 0.43, 10 kept `new([16]byte)`): `MemStats.Mallocs` +0, `runtime.mallocs` +10 under the default GC; +10 and +10 under `-gc=leaking`. Every check counts the exact total over its whole sequence and wants 0: `AllocsPerRun`'s per-run integer average passes an allocation every few runs (one every 7th mux line passed all the old checks).
+| runtime | `MemStats.Mallocs` | `MemStats.TotalAlloc` | `testing.AllocsPerRun` |
+|---|---:|---:|---:|
+| Go | 15 | 408 B | 1 |
+| TinyGo, default GC (Boehm) | **0** | 624 B | 1 |
+| TinyGo `-gc=leaking` | 14 | 400 B | 1 |
+
+So under TinyGo's default GC `Mallocs` is not usable; `runtime.mallocs` is (10 kept `new([16]byte)`: `Mallocs` +0, `runtime.mallocs` +10 under the default GC; +10 and +10 under `-gc=leaking`). Every check counts the exact total over its whole sequence and wants 0: `AllocsPerRun`'s per-run integer average passes an allocation every few runs (one every 7th mux line passed all the old checks).
 
 On Go, `mallocs()` counts from the heap profile (`runtime.MemProfileRate = 1`; `runtime.GC` publishes it, `runtime.MemProfile` reads it): the allocations with this module's code on the stack, except the runtime's own caches for interface type assertions and type switches (`runtime.buildTypeAssertCache`, `runtime.buildInterfaceSwitchCache` in `runtime/iface.go`). The runtime fills those per-call-site caches at random (about 1 miss in 1000, doubled as they grow): about 180 objects over the first ~1500 soak rounds, a different count each run (`docs/evidence/go-soak-allocs/`). Leaving out exactly those stacks makes the Go count exact and the same every run, from the first round; TinyGo has no such cache.
 
 The root, `layout` and `container` tests use `internal/check` (assertions on plain `testing`), so they run under `tinygo test -gc=leaking` too. testify panics under `tinygo test` (reflection) before any test runs. The `widget` package's tests still use testify and are host checks. The library-wide allocation checks live in `internal/refapp`.
 
-| Check | How | Run |
+| Check | What it covers | Test |
 |---|---|---|
-| menu-driven soak | a reference app over every widget, container, overlay, `Pages`, the navigator, animation and text; 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history after setup, each followed by a command-mux replay of an 8-line console session: **exactly 0** allocations on Go and on TinyGo (default GC and `-gc=leaking`) | `go test ./internal/refapp`, `tinygo test ./internal/refapp`, `tinygo test -gc=leaking ./internal/refapp` |
-| no GC at all | the same soak as a program under the leaking (never-freeing) allocator | `tinygo run -gc=leaking ./internal/refapp/cmd/refsoak` → "50 rounds, 0 allocations after setup" |
-| first draw | containers and grids size their buffers when built, so showing a page for the first time allocates nothing | `TestFirstDrawDoesNotAllocate` |
-| per widget | exactly 0 over 50 runs of each widget's `Draw` and of its command sequence, the overlays, animation, `Log.Append`, a screensaver frame | `TestWidgetsDrawAndInteractWithoutAllocating` (Go and TinyGo, either GC) |
+| menu-driven soak | a reference app (every widget, container, overlay, `Pages`, the navigator, animation, text) through 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history, each followed by a command-mux replay of an 8-line console session: exactly 0 on Go and on TinyGo (default GC and `-gc=leaking`) | `TestSoakDoesNotAllocate` |
+| no GC at all | the soak as a program under the leaking allocator | `tinygo run -gc=leaking ./internal/refapp/cmd/refsoak` → "50 rounds, 0 allocations after setup" |
+| per widget | exactly 0 over 50 runs of each listed widget's `Draw` and of a command sequence (icons included: decoded once at construction), the overlays, animation, `Log.Append`, a screensaver frame | `TestWidgetsDrawAndInteractWithoutAllocating` |
+| first draw | containers and grids size their buffers when built | `TestFirstDrawDoesNotAllocate` |
 | console | the command mux reads and dispatches lines: exactly 0 over 50 replays of an 8-line session | `TestCommandMuxDispatchesWithoutAllocating` |
-| static | `tinygo build -print-allocs=github.com/itohio/tinygui` on `cmd/refsoak`: every library heap site must be in `internal/refapp/allocs_allowlist.txt`, reviewed as setup-only (constructors, options, growth guards that only fire when a widget's children or size change after construction); a new site fails | `TestLibraryAllocatesOnlyInSetup` (needs `tinygo` on PATH) |
+| pages without a GC | the default `Keep` (every page; `WithKeep(n)` with n ≥ the page count does the same) and `BuildAll` in setup: a walk (`Show` each page, then `Back`, with a `Draw` after each) allocates nothing; with fewer kept (`WithKeep(n)`, saving the memory of the released pages), rebuilds allocate. Runs on Go and under TinyGo with either GC; `container` `TestPagesDefaultKeepsEveryPage` counts the zero exactly with no options | `TestPagesWithoutGCNeedEveryPageKept` |
+| static | `tinygo build -print-allocs` on `cmd/refsoak`: each library function with heap sites is listed in `allocs_allowlist.txt` with its number of sites, reviewed as setup-only; a new site, even in a listed function, fails | `TestLibraryAllocatesOnlyInSetup` |
+
+Limits: the static check sees only sites the compiler places; allocations inside runtime helpers (`append` growing a slice, string concatenation, conversions, map hashing) show only in the runtime counts above. Library code that no test exercises is not covered — a widget added later needs its own case in the table.
 
 Fixed on the way (findings F-38…F-43): the visibility map, the navigator's paths, `Log`'s copy per line, `ScrollChoice`'s cursor, `InteractiveLabel`'s `Sprintf` text (`e335450`), `ChildContext`'s `Clone` fallback under scroll offsets (`f35331d`). The per-frame `Clone` and per-event sites the table below found at `b140156` are gone.
 

@@ -15,11 +15,15 @@ import (
 	"testing"
 )
 
-// Every heap allocation TinyGo leaves in the library is in a function
-// reviewed as setup-only (constructors, options, first-draw buffer sizing,
-// …): allocs_allowlist.txt. A new site fails the test until it is removed
-// or reviewed and listed. Needs `tinygo` on PATH (skipped otherwise);
-// REFAPP_ALLOCS_DUMP=1 prints the current sites in the allowlist's format.
+// Every heap allocation site TinyGo leaves in the library is in a function
+// reviewed as setup-only (constructors, options, growth guards):
+// allocs_allowlist.txt lists each function with its number of sites, so a
+// new site — even inside an already listed function — fails the test until
+// it is reviewed and the count updated (verify TG-1-postcommit R8). Needs
+// `tinygo` on PATH (skipped otherwise); REFAPP_ALLOCS_DUMP=1 prints the
+// current sites in the allowlist's format. Allocations inside runtime
+// helpers (string concatenation, conversions) are reported at the runtime,
+// not here: the -gc=leaking tests catch those.
 func TestLibraryAllocatesOnlyInSetup(t *testing.T) {
 	if runtime.Compiler != "gc" {
 		t.Skip("runs tinygo itself; run with go test")
@@ -36,10 +40,9 @@ func TestLibraryAllocatesOnlyInSetup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tinygo build: %v\n%s", err, out)
 	}
-	allowed := readAllowlist(t)
 	funcs := map[string][]fn{} // per file
-	var sites []string
-	seen := map[string]bool{}
+	count := map[string]int{}  // sites per "file function"
+	seenPos := map[string]bool{}
 	sc := bufio.NewScanner(strings.NewReader(string(out)))
 	for sc.Scan() {
 		line := sc.Text()
@@ -61,42 +64,80 @@ func TestLibraryAllocatesOnlyInSetup(t *testing.T) {
 		if _, ok := funcs[rel]; !ok {
 			funcs[rel] = parseFuncs(t, path)
 		}
-		key := rel + " " + enclosing(funcs[rel], ln)
-		if seen[key] {
+		if seenPos[pos] {
 			continue
 		}
-		seen[key] = true
-		sites = append(sites, key)
+		seenPos[pos] = true
+		count[rel+" "+enclosing(funcs[rel], ln)]++
 	}
-	sort.Strings(sites)
+	var keys []string
+	for k := range count {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	if os.Getenv("REFAPP_ALLOCS_DUMP") != "" {
-		for _, s := range sites {
-			t.Log(s)
+		for _, k := range keys {
+			t.Logf("%s %d", k, count[k])
 		}
 	}
-	for _, s := range sites {
-		if !allowed[s] {
-			t.Errorf("heap allocation in %s: not in allocs_allowlist.txt (remove it, or review it as setup-only and list it)", s)
+	allowed := readAllowlist(t) // after the dump: it works with a broken list too
+	for _, k := range keys {
+		switch want, ok := allowed[k]; {
+		case !ok:
+			t.Errorf("heap allocation in %s (%d sites): not in allocs_allowlist.txt (remove it, or review it as setup-only and list it)", k, count[k])
+		case count[k] > want:
+			t.Errorf("%s: %d heap sites, %d reviewed: a new site (remove it, or review it and update the count)", k, count[k], want)
+		case count[k] < want:
+			t.Errorf("%s: %d heap sites, the allowlist says %d: update the count", k, count[k], want)
+		}
+	}
+	for k := range allowed {
+		if count[k] == 0 {
+			t.Errorf("allocs_allowlist.txt lists %s, which has no heap site any more: remove it", k)
 		}
 	}
 }
 
-func readAllowlist(t *testing.T) map[string]bool {
+// go test runs the TinyGo checks too when tinygo is on PATH: the allocation
+// tests under -gc=leaking (the boards' kind of allocator; plain tinygo test
+// counts as well, through runtime.mallocs), so a TinyGo-only allocation
+// fails a plain `go test ./internal/refapp` (verify TG-1-postcommit R8).
+func TestTinyGoCountsNoAllocations(t *testing.T) {
+	if runtime.Compiler != "gc" {
+		t.Skip("this is the TinyGo run itself")
+	}
+	tinygo, err := exec.LookPath("tinygo")
+	if err != nil {
+		t.Skip("tinygo not on PATH")
+	}
+	cmd := exec.Command(tinygo, "test", "-gc=leaking", ".")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("tinygo test -gc=leaking ./internal/refapp: %v\n%s", err, out)
+	}
+}
+
+func readAllowlist(t *testing.T) map[string]int {
 	f, err := os.Open("allocs_allowlist.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	m := map[string]bool{}
+	m := map[string]int{}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := sc.Text()
 		if i := strings.Index(line, "#"); i >= 0 {
 			line = line[:i]
 		}
-		if f := strings.Fields(line); len(f) == 2 {
-			m[f[0]+" "+f[1]] = true
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
 		}
+		n, err := strconv.Atoi(f[len(f)-1])
+		if len(f) != 3 || err != nil || n < 1 {
+			t.Fatalf("allocs_allowlist.txt: %q: want <file> <function> <sites>", sc.Text())
+		}
+		m[f[0]+" "+f[1]] = n
 	}
 	return m
 }

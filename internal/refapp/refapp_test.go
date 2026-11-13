@@ -330,3 +330,50 @@ func pngOf(w, h int, c color.RGBA) string {
 	}
 	return b.String()
 }
+
+// Running without a GC needs Pages to keep every page (Keep ≥ the number of
+// pages, then BuildAll in setup): with fewer kept, showing a released page
+// builds it again — the app's Build allocates every time, so a GC-free heap
+// grows for ever. Walking (Show, Back, Draw) through 5 pages: Keep 2 → the
+// rebuilds allocate; every page kept and built in setup → nothing.
+func TestPagesWithoutGCNeedEveryPageKept(t *testing.T) {
+	needMallocCount(t)
+	_, ctx := display()
+	specs := make([]container.PageSpec, 5)
+	for i := range specs {
+		specs[i] = container.PageSpec{Name: "p", Build: func() ui.Widget {
+			return container.New[ui.Widget](100, 40, container.WithLayout[ui.Widget](layout.VList(1)),
+				container.WithChildren[ui.Widget](widget.NewSeparator(80, 3, fg)))
+		}}
+	}
+	walk := func(p *container.Pages) func() {
+		return func() {
+			for i := range specs {
+				p.Show(i)
+				p.Draw(&ctx)
+			}
+			p.Back()
+			p.Draw(&ctx)
+		}
+	}
+	few := container.NewPages(100, 40, specs, container.WithKeep(2), container.WithHistory(4))
+	walkFew := walk(few)
+	walkFew()
+	m0 := mallocs()
+	walkFew()
+	if n := mallocs() - m0; n == 0 {
+		t.Fatal("Keep 2 of 5: a walk rebuilt pages without allocating?")
+	}
+
+	all := container.NewPages(100, 40, specs, container.WithHistory(4))
+	all.BuildAll()
+	walkAll := walk(all)
+	walkAll()
+	m0 = mallocs()
+	for range 10 {
+		walkAll()
+	}
+	if n := mallocs() - m0; n != 0 {
+		t.Fatalf("every page kept and built in setup: %d allocations in 10 walks", n)
+	}
+}
