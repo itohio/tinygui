@@ -30,8 +30,8 @@ Owner (2026-11-12): "utilise layout algorithms properly (we should have all usef
 | `HFlow(gap, maxW)` / `VFlow(gap, maxH)` | strategy | existed | wrapping flow with a limit (0 = context size, which ignores padding: findings F-33) |
 | `container.Scroll` + `ScrollChoice` | container | existed (fixed `811a3f5`) | viewport over content laid out by a strategy; scrollbar observer |
 | `Row(gap, main, cross, weights…)` / `Column(…)` | arranger | **added** | packed with gap and placed Start / Center / End / SpaceBetween, or **weighted cells** (weight 0 keeps its size, others share the rest), child aligned in its cell; cross-axis alignment |
-| `Wrap{Gap, Main, Cross, Block}` | arranger | **added** | rows that wrap by width; each row justified, children aligned in the row, the block aligned vertically (the Demos page: the focused tile grows, rows reflow) |
-| `Table{Cols, GapX, GapY, H, V}` | arranger | **added** | N equal-width columns, rows as tall as their tallest child, cell alignment |
+| `Wrap{Gap, Main, Cross, Block}` | arranger | **added** | rows that wrap by width; each row justified, children aligned in the row, the block aligned vertically (the Demos page: the focused tile grows, rows reflow); no `Measure` (its height depends on its width): a zero-size container with it panics at construction — give it a size |
+| `Table{Cols, GapX, GapY, H, V}` | arranger | **added** | N equal-width columns, rows as tall as their tallest child, cell alignment; `Measure`: columns as wide as the widest child (a zero-size container takes it) |
 | `Anchor{H, V, DX, DY}` | arranger | **added** | every child aligned in the whole box, offset: centred dialogs, corner badges, stacks in draw order |
 | `Measurer` | arranger option | **added** | a zero-sized container takes the arranger's measured size (`Line`, `Anchor`) |
 

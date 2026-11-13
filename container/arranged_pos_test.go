@@ -68,3 +68,20 @@ func TestArrangedChildrenKeepPositionsOutsideTheBox(t *testing.T) {
 			drawAt(t, 100, 10, layout.Row(0, layout.Center, layout.Start), w1, w2))
 	})
 }
+
+// A container of zero size takes its arranger's measured size; with an
+// arranger that can't measure (Wrap: its height depends on its width) it
+// would stay 0×0 and draw nothing, so construction panics with a clear
+// message instead (review R-TG-1 L6).
+func TestZeroSizeContainerNeedsAMeasuringArranger(t *testing.T) {
+	c := container.New[ui.Widget](0, 0, container.WithArranger[ui.Widget](&layout.Table{Cols: 2}),
+		container.WithChildren[ui.Widget](newSpot(10, 4), newSpot(30, 6), newSpot(20, 8)))
+	w, h := c.Size()
+	require.Equal(t, [2]uint16{60, 14}, [2]uint16{w, h})
+	require.PanicsWithValue(t,
+		"container.New: a zero width or height needs an arranger that can measure its children (layout.Measurer); give layout.Wrap a fixed size",
+		func() {
+			container.New[ui.Widget](0, 40, container.WithArranger[ui.Widget](&layout.Wrap{}),
+				container.WithChildren[ui.Widget](newSpot(10, 4)))
+		})
+}

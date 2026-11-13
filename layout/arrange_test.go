@@ -98,3 +98,19 @@ func TestRowLargeWeightsDoNotOverflow(t *testing.T) {
 	require.Equal(t, int16(0), r[0].X)
 	require.Equal(t, int16(250), r[1].X) // 320·200/255 = 250; the second cell spans 250..320
 }
+
+// Table measures the box Arrange fills (a container of zero size takes it):
+// columns as wide as the widest child, rows as tall as their tallest.
+func TestTableMeasure(t *testing.T) {
+	s := sizes{{10, 4}, {30, 6}, {20, 8}, {5, 5}, {12, 3}}
+	tb := &Table{Cols: 2, GapX: 2, GapY: 1}
+	w, h := tb.Measure(s)
+	require.Equal(t, uint16(2*30+2), w)
+	require.Equal(t, uint16(6+1+8+1+3), h)
+	out := make([]Rect, len(s))
+	tb.Arrange(w, h, s, out)
+	for i, r := range out {
+		require.LessOrEqual(t, r.X+int16(r.W), int16(w), "child %d inside the measured width", i)
+		require.LessOrEqual(t, r.Y+int16(r.H), int16(h), "child %d inside the measured height", i)
+	}
+}

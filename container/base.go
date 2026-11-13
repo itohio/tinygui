@@ -129,6 +129,10 @@ func New[T ui.Widget](width, height uint16, opts ...Option[T]) *Base[T] {
 	for _, opt := range opts {
 		opt(c)
 	}
+	if _, ok := c.arranger.(layout.Measurer); c.arranger != nil && !ok && (width == 0 || height == 0) {
+		// it would stay 0×0 and draw nothing (review R-TG-1 L6)
+		panic("container.New: a zero width or height needs an arranger that can measure its children (layout.Measurer); give layout.Wrap a fixed size")
+	}
 	if m, ok := c.arranger.(layout.Measurer); ok && (width == 0 || height == 0) {
 		w, h := m.Measure(c)
 		if width == 0 {

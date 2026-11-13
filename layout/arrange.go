@@ -258,6 +258,30 @@ func (t *Table) Arrange(w, h uint16, items Sizes, out []Rect) {
 	}
 }
 
+// Measure is the size Arrange fills: every column as wide as the widest
+// child, rows as tall as their tallest child, with the gaps.
+func (t *Table) Measure(items Sizes) (uint16, uint16) {
+	n := items.Len()
+	if n == 0 {
+		return 0, 0
+	}
+	cols := max(t.Cols, 1)
+	var cellW, h int16
+	for r := 0; r < n; r += cols {
+		var rh int16
+		for k := r; k < min(r+cols, n); k++ {
+			cw, ch := items.SizeAt(k)
+			cellW = max(cellW, int16(cw))
+			rh = max(rh, int16(ch))
+		}
+		h += rh
+		if r > 0 {
+			h += t.GapY
+		}
+	}
+	return uint16(int16(cols)*cellW + t.GapX*int16(cols-1)), uint16(h)
+}
+
 // Anchor stacks every child in the whole box, placed by H and V and moved by
 // DX, DY: centred dialogs, corner badges, layers drawn in child order.
 type Anchor struct {
