@@ -152,7 +152,7 @@ func (a *App) pageWidgets() ui.Widget {
 }
 
 func scope(samples []uint16) ui.Widget {
-	s := widget.NewScope(150, 60, bg, track, track, good, acc)
+	s := widget.NewScope(150, 60, widget.ScopeStyle{BG: bg, Grid: track, Axis: track, Trace: good, Marker: acc})
 	s.Samples, s.Lo, s.Hi, s.Trigger, s.TrigAt = samples, 0, 50, 25, 60
 	return s
 }

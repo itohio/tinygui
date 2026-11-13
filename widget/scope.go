@@ -22,16 +22,21 @@ type Scope struct {
 	DivX, DivY int      // grid divisions
 	Trigger    int      // trigger level in sample units, < 0: none
 	TrigAt     int      // index into Samples of the trigger point, < 0: none
-	BG, Grid   color.RGBA
-	Axis       color.RGBA // the centre lines of the grid
-	Trace      color.RGBA
-	Marker     color.RGBA // trigger ticks
+	ScopeStyle          // colours; promoted: s.BG, s.Trace, …
+}
+
+// ScopeStyle is how a Scope looks.
+type ScopeStyle struct {
+	BG, Grid color.RGBA
+	Axis     color.RGBA // the centre lines of the grid
+	Trace    color.RGBA
+	Marker   color.RGBA // trigger ticks
 }
 
 // NewScope makes a w×h scope with a 10×8 grid and no trigger marks.
-func NewScope(w, h uint16, bg, grid, axis, trace, marker color.RGBA) *Scope {
+func NewScope(w, h uint16, style ScopeStyle) *Scope {
 	return &Scope{WidgetBase: ui.NewWidgetBase(w, h), Hi: 0xffff, DivX: 10, DivY: 8,
-		Trigger: -1, TrigAt: -1, BG: bg, Grid: grid, Axis: axis, Trace: trace, Marker: marker}
+		Trigger: -1, TrigAt: -1, ScopeStyle: style}
 }
 
 // y is the row of value v (clamped to the widget).

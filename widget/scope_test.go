@@ -15,7 +15,7 @@ var (
 )
 
 func newTestScope(w, h uint16) (*Scope, *canvas, ui.ContextImpl) {
-	s := NewScope(w, h, scBG, scGrid, scGrid, scTrace, color.RGBA{255, 0, 0, 255})
+	s := NewScope(w, h, ScopeStyle{BG: scBG, Grid: scGrid, Axis: scGrid, Trace: scTrace, Marker: color.RGBA{255, 0, 0, 255}})
 	s.Lo, s.Hi = 0, uint16(h-1) // one count per row: row = h-1-v
 	c := newCanvas(int16(w), int16(h))
 	return s, c, ui.NewContext(c, w, h, 0, 0)
@@ -75,7 +75,7 @@ var (
 // The grid: DivX-1 vertical and DivY-1 horizontal lines at even spacing,
 // the centre ones in the axis colour, the rest in the grid colour.
 func TestScopeGridAndCentreAxes(t *testing.T) {
-	s := NewScope(20, 16, scBG, scGrid, scAxis, scTrace, scMarker)
+	s := NewScope(20, 16, ScopeStyle{scBG, scGrid, scAxis, scTrace, scMarker})
 	s.DivX, s.DivY = 4, 4
 	c := newCanvas(20, 16)
 	ctx := ui.NewContext(c, 20, 16, 0, 0)
@@ -106,7 +106,7 @@ func TestScopeTriggerTicks(t *testing.T) {
 		{"level at Hi, point at the start", h - 1, 0, [4]int16{0, 0, 5, 3}, [4]int16{0, 0, 3, 5}},
 		{"level at Lo, point at the end", 0, 63, [4]int16{0, h - 3, 5, 3}, [4]int16{w - 3, 0, 3, 5}},
 	} {
-		s := NewScope(w, h, scBG, scGrid, scAxis, scTrace, scMarker)
+		s := NewScope(w, h, ScopeStyle{scBG, scGrid, scAxis, scTrace, scMarker})
 		s.Lo, s.Hi = 0, h-1
 		s.Samples = make([]uint16, 64)
 		s.Trigger, s.TrigAt = c.trigger, c.trigAt

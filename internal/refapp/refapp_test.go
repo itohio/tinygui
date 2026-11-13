@@ -121,7 +121,7 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 	ml.SetLines(lines)
 	log := widget.NewInteractiveLog(100, 11, 3, widget.WithMultilineFont(font), widget.WithMultilineColor(fg))
 	log.SetCapacity(8)
-	sc := widget.NewScope(100, 50, bg, track, track, good, acc)
+	sc := widget.NewScope(100, 50, widget.ScopeStyle{BG: bg, Grid: track, Axis: track, Trace: good, Marker: acc})
 	sc.Samples, sc.Hi, sc.Trigger, sc.TrigAt = samples, 50, 20, 30
 	rows := []ui.Widget{widget.NewLabel(80, 11, font, func() string { return "row" }, fg),
 		widget.NewLabel(80, 11, font, func() string { return "row" }, fg)}
