@@ -85,16 +85,24 @@ func (c *ContextImpl) Clone(widget Widget, W, H uint16) Context {
 // cursor is (parent.DisplayPos), and returns it: what parent.Clone would
 // return, without allocating. Containers keep dst between frames, so drawing
 // a tree costs no allocation per container per frame (per band, with a
-// banded framebuffer). Any parent works: a scroll's offset context or a
-// RandomContext reports its display position already moved, so the child
-// needs nothing of the parent's type (falling back to their Clone allocated
-// a context per draw for every container inside a Scroll).
+// banded framebuffer). Any parent works: a scroll's offset context reports
+// its display position already moved, so the child needs nothing of the
+// parent's type (falling back to their Clone allocated a context per draw
+// for every container inside a Scroll). A parent that moves on its own (a
+// *RandomContext, burn-in protection) is moved first, as its Clone did:
+// Move is time-gated, so calling it per child is harmless.
 func ChildContext(parent Context, dst *ContextImpl, widget Widget, W, H uint16) Context {
+	if m, ok := parent.(mover); ok {
+		m.Move()
+	}
 	x, y := parent.DisplayPos()
 	*dst = NewContext(parent.D(), W, H, x, y)
 	dst.widget = widget
 	return dst
 }
+
+// mover is a context that moves itself when its time comes (RandomContext).
+type mover interface{ Move() }
 
 // RandomContext implements randomly shifting context.
 // It is especially useful for OLED displays to prevent burn-in.
@@ -119,9 +127,9 @@ func NewRandomContext(d drivers.Displayer, interval time.Duration, w, h uint16) 
 }
 
 // Move shifts the origin to a new random place once interval has passed
-// since the last move. It doesn't allocate: call it once per frame and draw
-// through ChildContext(&c.ContextImpl, …) instead of Clone, which allocates
-// a context each call.
+// since the last move. It doesn't allocate. ChildContext(&c, …) calls it
+// (draw through that instead of Clone, which allocates a context each call);
+// an app drawing through &c.ContextImpl calls Move itself, once per frame.
 func (c *RandomContext) Move() {
 	if time.Since(c.lastTime) <= c.interval {
 		return

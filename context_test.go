@@ -54,3 +54,25 @@ func TestChildContextUnderAnyParent(t *testing.T) {
 		t.Fatalf("%.0f allocations per child context", n)
 	}
 }
+
+// A container drawn into a RandomContext through ChildContext is moved
+// around (burn-in protection), as Clone moved it — without allocating
+// (verify TG-1-postcommit R12: ChildContext stopped moving it, so the
+// protection was silently off).
+func TestChildContextMovesARandomContextParent(t *testing.T) {
+	d := &pixelSet{}
+	c := NewRandomContext(d, 0, 50, 20) // moves on every call
+	var dst ContextImpl
+	var p Context = &c
+	seen := map[[2]int16]bool{}
+	for range 30 {
+		x, y := ChildContext(p, &dst, nil, 10, 10).DisplayPos()
+		seen[[2]int16{x, y}] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("the child stayed at %v: the RandomContext parent never moved", seen)
+	}
+	if n := testing.AllocsPerRun(50, func() { ChildContext(p, &dst, nil, 10, 10) }); n != 0 {
+		t.Fatalf("%.0f allocations per child context", n)
+	}
+}

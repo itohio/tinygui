@@ -48,7 +48,7 @@ As-is description of TinyGUI at `b140156` (module `github.com/itohio/tinygui`, G
 | `Sizer`, `Padder`, `Marginer` | `widget.go:33-43` | `Padder`/`Marginer` are declared but nothing calls them; padding/margin are container fields (`container/base.go:22-25`) |
 | `WidgetBase` | `widget.go:149-178` | parent, fixed `Width/Height` (`uint16`), selected flag; default `Interact` consumes only `ESC` (deselects) |
 | `Context` / `ContextImpl` | `context.go:17-82` | displayer handle, viewport size, origin, cursor (`posX/posY`); `Clone` makes a child context at the current cursor |
-| `RandomContext` | `context.go:86-123` | OLED burn-in shift: re-randomises the origin on `Clone` after `interval` |
+| `RandomContext` | `context.go` | OLED burn-in shift: re-randomises the origin after `interval`, on `Move()` — called by `ChildContext(&rc, …)` and `Clone`; an app drawing through `&rc.ContextImpl` calls `Move()` once per frame (no allocation either way) |
 | `Displayer` and friends | `drawing.go:11-32` | `BitmapDisplayer`, `LineDisplayer`, `RectangleDisplayer`; widgets type-assert for fast paths and fall back to `SetPixel` loops |
 | `Navigator` | `navigator.go:40-323` | stack of `Navigable`, focus/enter/back, observers |
 | `layout.Strategy` | `layout/layout.go:12` | `func(ctx ui.Context, w ui.Sizer) bool`; returns false to stop drawing further children |
