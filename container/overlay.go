@@ -66,11 +66,24 @@ func (o *Overlay) Close(w ui.Widget) {
 	}
 }
 
-// Top is the layer receiving commands, or nil.
-// Modal reports a layer open: Navigators below don't move the focus while
-// it is (ui.Modal).
-func (o *Overlay) Modal() bool { return o.n > 0 }
+// ModalFor reports whether a Navigator rooted at root is blocked (ui.Modal):
+// a layer is open and root is not inside the top layer — it is the base or
+// in a layer under the top. A Navigator rooted in the top layer (a panel
+// opened as a layer, navigated by its own Navigator) keeps working.
+func (o *Overlay) ModalFor(root ui.Widget) bool {
+	if o.n == 0 {
+		return false
+	}
+	top := o.layers[o.n-1].w
+	for w := root; w != nil && w != ui.Widget(o); w = w.Parent() {
+		if w == top {
+			return false
+		}
+	}
+	return true
+}
 
+// Top is the layer receiving commands, or nil.
 func (o *Overlay) Top() ui.Widget {
 	if o.n == 0 {
 		return nil

@@ -26,7 +26,7 @@ func TestModalOverlayBlocksTheNavigator(t *testing.T) {
 
 	dialog := widget.NewDialog(overlayStyle, "Sure?", nil, []string{"Yes", "No"}, nil, nil)
 	require.True(t, overlay.OpenCentered(dialog))
-	require.True(t, overlay.Modal())
+	require.True(t, overlay.ModalFor(root))
 	require.False(t, nav.Next(), "Next behind a modal dialog")
 	require.False(t, nav.Enter(), "Enter behind a modal dialog")
 	require.False(t, nav.Back(), "Back behind a modal dialog")
@@ -34,7 +34,7 @@ func TestModalOverlayBlocksTheNavigator(t *testing.T) {
 	require.False(t, b.focused)
 
 	overlay.Close(dialog)
-	require.False(t, overlay.Modal())
+	require.False(t, overlay.ModalFor(root))
 	require.True(t, nav.Next())
 	require.True(t, b.focused)
 }

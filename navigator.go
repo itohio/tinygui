@@ -36,11 +36,13 @@ type Activator interface {
 	Activate() bool
 }
 
-// Modal is an overlay host that reports a modal layer open (container.
-// Overlay with a dialog or list open): while it is, a Navigator below it
-// doesn't move the focus, enter or go back.
+// Modal is an overlay host with modal layers (container.Overlay with a
+// dialog or list open). ModalFor reports whether a Navigator rooted at root
+// is blocked: a layer is open above root. While it is, the Navigator
+// doesn't move the focus, enter or go back; a Navigator rooted inside the
+// top layer is not blocked.
 type Modal interface {
-	Modal() bool
+	ModalFor(root Widget) bool
 }
 
 // NavigatorEvent encapsulates navigation changes for observers. Path is
@@ -286,14 +288,16 @@ func (n *Navigator) ensureSelection() bool {
 	return true
 }
 
-// currentContainer returns the Navigable instance at the top of the stack.
-// blocked: a modal overlay (a dialog, an open list) is over the root, so
-// focus moves, Enter and Back are refused (review R-TG-1 L5).
+// blocked reports a modal overlay (a dialog, an open list) over the root:
+// focus moves, Enter and Back are refused (review R-TG-1 L5). A root inside
+// the top layer is not blocked (review R-TG-postcommit T1).
 func (n *Navigator) blocked() bool {
-	m, ok := FindOverlayHost(n.stack[0]).(Modal)
-	return ok && m.Modal()
+	root := n.stack[0]
+	m, ok := FindOverlayHost(root).(Modal)
+	return ok && m.ModalFor(root)
 }
 
+// currentContainer returns the Navigable instance at the top of the stack.
 func (n *Navigator) currentContainer() Navigable {
 	return n.stack[n.depth-1]
 }
