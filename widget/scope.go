@@ -11,7 +11,8 @@ import (
 // pixel columns each column shows the min…max of its samples (nothing is
 // lost between pixels, like a scope's peak-detect mode); with fewer, the
 // samples are joined by vertical steps. The trigger level is a tick on the
-// left edge and the trigger point a tick on the top edge. The caller
+// left edge and the trigger point a tick on the top edge (inside the widget
+// at its edges). The caller
 // updates Samples (and the range) in place; Draw reads them and allocates
 // nothing.
 type Scope struct {
@@ -78,10 +79,13 @@ func (s *Scope) Draw(ctx ui.Context) {
 			prev = s.y(int(s.Samples[min(i1, n)-1]))
 		}
 	}
+	// the ticks are 3 px wide across their position, kept inside the widget
+	// at the edges (a level at Hi or Lo, a trigger point at either end)
 	if s.Trigger >= 0 {
-		fillRect(d, x0, y0+s.y(s.Trigger)-1, 5, 3, s.Marker)
+		fillRect(d, x0, y0+min(max(s.y(s.Trigger)-1, 0), h-3), 5, 3, s.Marker)
 	}
 	if s.TrigAt >= 0 && n > 0 {
-		fillRect(d, x0+int16(s.TrigAt*int(w)/n)-1, y0, 3, 5, s.Marker)
+		tx := int16(min(s.TrigAt, n-1) * int(w) / n)
+		fillRect(d, x0+min(max(tx-1, 0), w-3), y0, 3, 5, s.Marker)
 	}
 }
