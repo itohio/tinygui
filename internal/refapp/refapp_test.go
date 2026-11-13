@@ -3,7 +3,6 @@ package refapp
 import (
 	"image/color"
 	"io"
-	"runtime"
 	"testing"
 
 	ui "github.com/itohio/tinygui"
@@ -14,70 +13,78 @@ import (
 	"github.com/itohio/tinygui/widget"
 )
 
-func mallocs() uint64 {
-	var ms runtime.MemStats
-	runtime.ReadMemStats(&ms)
-	return ms.Mallocs
-}
-
 var countProbe []*[16]byte
 
-// needMallocCount skips an allocation test on a runtime that counts no
-// allocations: TinyGo's default host GC (Boehm) reports Mallocs = 0, which
-// would pass every check. Run TinyGo with `tinygo test -gc=leaking`, which
-// counts each one (as the badge's own GC does).
+// needMallocCount fails an allocation test on a runtime whose counter
+// misses allocations: every check would pass. mallocs() counts on Go and on
+// TinyGo under every collector (the default Boehm one included).
 func needMallocCount(t *testing.T) {
 	t.Helper()
 	m0 := mallocs()
 	countProbe = append(countProbe, new([16]byte))
 	if mallocs() == m0 {
-		t.Skip("this runtime counts no allocations (TinyGo's host Boehm GC): run tinygo test -gc=leaking")
+		t.Fatal("the allocation counter missed an allocation: the allocation checks cannot run")
 	}
 }
 
+// allocsIn is the exact number of heap allocations made by n calls of f:
+// a total, not testing.AllocsPerRun's per-run integer average, which
+// passes an allocation every few runs.
+func allocsIn(n int, f func()) uint64 {
+	m0 := mallocs()
+	for range n {
+		f()
+	}
+	return mallocs() - m0
+}
+
+// muxLines is a console session for the command mux: commands with and
+// without arguments, CRLF, an unknown command, an empty line.
+const muxLines = "up\nbl 40\r\nstats\nnope x\n\nup\nbl 7\nstats\n"
+
+// newMux is a command mux over a replayed console: run replays the session
+// once; got counts dispatched commands, arg is the last bl argument's length.
+func newMux() (run func(), got, arg *int) {
+	got, arg = new(int), new(int)
+	r := &console{s: muxLines}
+	m := ui.NewCommandStreamMux(r, map[string]func([]byte){
+		"up": func([]byte) { *got++ }, "stats": func([]byte) { *got++ },
+		"bl": func(a []byte) { *got++; *arg = len(a) },
+	})
+	return func() { r.i = 0; _ = m.Run() }, got, arg
+}
+
 // The menu-driven soak allocates nothing after setup: every library path
-// (draw, input, navigation, pages, layout, overlays, animation, text) runs
-// allocation-free, so the app runs with the garbage collector disabled.
-//
-// Under TinyGo (`tinygo test ./internal/refapp`, and with `-gc=leaking`) the
-// count must be exactly 0. Go's own runtime fills its per-call-site
-// type-assertion caches lazily (at random, on misses) and allocates them at
-// type assertions anywhere, library code included; so on Go the check is
-// testing.AllocsPerRun's: fewer than one allocation per step on average.
+// (draw, input, navigation, pages, layout, overlays, animation, text, the
+// serial command mux) runs allocation-free, so the app runs with the
+// garbage collector disabled. The count over 20 rounds must be exactly 0,
+// on Go and on TinyGo (any collector).
 func TestSoakDoesNotAllocate(t *testing.T) {
 	needMallocCount(t)
 	a := New()
-	steps := 0
-	a.AfterStep = func(int) { steps++ }
+	mux, _, _ := newMux()
 	for range 3 { // the first rounds size buffers lazily
 		a.Round()
+		mux()
 	}
-	steps = 0
 	var bad, at int
-	var last uint64
-	if runtime.Compiler != "gc" { // TinyGo: name the first step that allocates
-		a.AfterStep = func(s int) {
-			steps++
-			if m := mallocs(); m != last && bad == 0 {
-				bad, at = int(m-last), s
-			}
-			last = mallocs()
+	var last, inMux uint64
+	a.AfterStep = func(s int) { // name the first step that allocates
+		if m := mallocs(); m != last && bad == 0 {
+			bad, at = int(m-last), s
 		}
+		last = mallocs()
 	}
 	last = mallocs()
-	m0 := last
-	for range 20 {
+	n := allocsIn(20, func() {
 		a.Round()
-	}
-	n := mallocs() - m0
-	if runtime.Compiler != "gc" {
-		if n != 0 {
-			t.Fatalf("%d allocations in 20 soak rounds after setup (first: %d at step %d)", n, bad, at)
-		}
-		return
-	}
-	if n/uint64(steps) != 0 {
-		t.Fatalf("%d allocations in %d soak steps after setup", n, steps)
+		m := mallocs()
+		mux()
+		last = mallocs()
+		inMux += last - m
+	})
+	if n != 0 {
+		t.Fatalf("%d allocations in 20 soak rounds after setup (%d in the command mux; first step: %d at step %d)", n, inMux, bad, at)
 	}
 }
 
@@ -87,8 +94,8 @@ func display() (*framebuffer.RGB565, ui.ContextImpl) {
 	return fb, ui.NewContext(fb, W, BandH, 0, 0)
 }
 
-// Every widget draws, and handles its commands, without allocating
-// (testing.AllocsPerRun == 0 per draw and per interaction), on Go and on
+// Every widget draws, and handles its commands, without allocating: exactly
+// 0 allocations over 50 draws and over 50 command sequences, on Go and on
 // TinyGo.
 func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 	needMallocCount(t)
@@ -169,25 +176,28 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		}), []ui.UserCommand{ui.DOWN, ui.UP}},
 		{"Overlay+Dropdown", host, nil},
 	}
+	const runs = 50
 	for _, c := range cases {
 		c.w.Draw(&ctx) // first draw sizes the widget's buffers
-		if n := testing.AllocsPerRun(50, func() { c.w.Draw(&ctx) }); n != 0 {
-			t.Errorf("%s: %.0f allocations per Draw", c.name, n)
+		if n := allocsIn(runs, func() { c.w.Draw(&ctx) }); n != 0 {
+			t.Errorf("%s: %d allocations in %d draws", c.name, n, runs)
 		}
 		if len(c.cmds) == 0 {
 			continue
 		}
 		c.w.SetSelected(true)
-		if n := testing.AllocsPerRun(50, func() {
+		seq := func() {
 			for _, cmd := range c.cmds {
 				c.w.Interact(cmd)
 			}
 			c.w.Draw(&ctx)
-		}); n != 0 {
-			t.Errorf("%s: %.0f allocations per command sequence", c.name, n)
+		}
+		seq()
+		if n := allocsIn(runs, seq); n != 0 {
+			t.Errorf("%s: %d allocations in %d command sequences", c.name, n, runs)
 		}
 	}
-	if n := testing.AllocsPerRun(50, func() {
+	overlays := func() {
 		ddw.Interact(ui.ENTER)
 		host.Interact(ui.DOWN)
 		host.DrawLayers(&ctx)
@@ -196,20 +206,26 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		host.DrawLayers(&ctx)
 		host.Interact(ui.RIGHT)
 		host.Interact(ui.ENTER)
-	}); n != 0 {
-		t.Errorf("overlays (dropdown list, dialog): %.0f allocations", n)
 	}
-	if n := testing.AllocsPerRun(50, func() {
+	overlays()
+	if n := allocsIn(runs, overlays); n != 0 {
+		t.Errorf("overlays (dropdown list, dialog): %d allocations in %d runs", n, runs)
+	}
+	step := func() {
 		now += 100
 		if anim.Update(animV[:], now) {
 			from, to = to, from
 			anim.Start(from[:], to[:], now)
 		}
-	}); n != 0 {
-		t.Errorf("animation: %.0f allocations per update", n)
 	}
-	if n := testing.AllocsPerRun(50, func() { log.Append("a log line") }); n != 0 {
-		t.Errorf("Log.Append: %.0f allocations", n)
+	step()
+	if n := allocsIn(runs, step); n != 0 {
+		t.Errorf("animation: %d allocations in %d updates", n, runs)
+	}
+	appendLine := func() { log.Append("a log line") }
+	appendLine()
+	if n := allocsIn(runs, appendLine); n != 0 {
+		t.Errorf("Log.Append: %d allocations in %d appends", n, runs)
 	}
 	// a screensaver: a RandomContext moved every frame, its text drawn through
 	// a reused child context (verify H-2: Clone allocated per frame)
@@ -217,11 +233,13 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 	saver := ui.NewRandomContext(fb, 0, 100, 12)
 	text := widget.NewLabel(100, 12, font, func() string { return "saver" }, fg)
 	var sctx ui.ContextImpl
-	if n := testing.AllocsPerRun(50, func() {
+	frame := func() {
 		saver.Move()
 		text.Draw(ui.ChildContext(&saver.ContextImpl, &sctx, text, 100, 12))
-	}); n != 0 {
-		t.Errorf("screensaver: %.0f allocations per frame", n)
+	}
+	frame()
+	if n := allocsIn(runs, frame); n != 0 {
+		t.Errorf("screensaver: %d allocations in %d frames", n, runs)
 	}
 }
 
@@ -241,30 +259,24 @@ func (c *console) Read(b []byte) (int, error) {
 }
 
 // The serial command mux reads and dispatches lines without allocating
-// (it converted every line to a string for the lookup).
+// (it converted every line to a string for the lookup): exactly 0
+// allocations over 50 replays of an 8-line session.
 func TestCommandMuxDispatchesWithoutAllocating(t *testing.T) {
 	needMallocCount(t)
-	var got, arg int
-	r := &console{s: "up\nbl 40\r\nstats\nnope x\n\n"}
-	m := ui.NewCommandStreamMux(r, map[string]func([]byte){
-		"up": func([]byte) { got++ }, "stats": func([]byte) { got++ },
-		"bl": func(a []byte) { got++; arg = len(a) },
-	})
-	run := func() { r.i = 0; _ = m.Run() }
+	run, got, arg := newMux()
 	run()
-	if got != 3 || arg != 2 {
-		t.Fatalf("dispatched %d commands (bl arg length %d), want 3 (2)", got, arg)
+	if *got != 6 || *arg != 1 {
+		t.Fatalf("dispatched %d commands (last bl arg length %d), want 6 (1)", *got, *arg)
 	}
-	if n := testing.AllocsPerRun(50, run); n != 0 {
-		t.Errorf("command mux: %.0f allocations per 5 lines", n)
+	if n := allocsIn(50, run); n != 0 {
+		t.Errorf("command mux: %d allocations in 50 replays of %q", n, muxLines)
 	}
 }
 
 // A widget's first draw (a page shown for the first time) allocates
 // nothing: containers and grids size their buffers when built (owner: no
 // allocations after setup; first draws used to size them). 20 fresh copies
-// of each, built first, then each drawn once: fewer than one allocation per
-// first draw (exactly none on TinyGo).
+// of each, built first, then each drawn once: exactly 0 allocations.
 func TestFirstDrawDoesNotAllocate(t *testing.T) {
 	needMallocCount(t)
 	_, ctx := display()
@@ -291,12 +303,8 @@ func TestFirstDrawDoesNotAllocate(t *testing.T) {
 		for i := range ws {
 			ws[i] = mk.make()
 		}
-		m0 := mallocs()
-		for _, w := range ws {
-			w.Draw(&ctx)
-		}
-		n := mallocs() - m0
-		if n != 0 && runtime.Compiler != "gc" || n >= copies {
+		i := 0
+		if n := allocsIn(copies, func() { ws[i].Draw(&ctx); i++ }); n != 0 {
 			t.Errorf("%s: %d allocations in %d first draws", mk.name, n, copies)
 		}
 	}
