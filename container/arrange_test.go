@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
+	"github.com/itohio/tinygui/internal/check"
 	"github.com/itohio/tinygui/layout"
-	"github.com/stretchr/testify/require"
 )
 
 // An arranged container draws each child where the arranger puts it, inside
@@ -20,14 +20,14 @@ func TestArrangerPlacesChildrenAndFollowsSizeChanges(t *testing.T) {
 	ctx := ui.NewContext(nil, 100, 40, 10, 20)
 	c.Draw(&ctx)
 	// inner box 92×36 from (4,2); children 44 wide in total → start at 24
-	require.Equal(t, [2]int16{10 + 4 + 24, 20 + 2 + 13}, a.drawnAt[0])
-	require.Equal(t, [2]int16{10 + 4 + 48, 20 + 2 + 13}, b.drawnAt[0])
+	check.Equal(t, [2]int16{10 + 4 + 24, 20 + 2 + 13}, a.drawnAt[0])
+	check.Equal(t, [2]int16{10 + 4 + 48, 20 + 2 + 13}, b.drawnAt[0])
 
 	a.Width, a.Height = 40, 20 // e.g. a tile magnified on focus
 	c.Draw(&ctx)
 	// 64 wide in total → start at 14; a is centred across: (36-20)/2 = 8
-	require.Equal(t, [2]int16{10 + 4 + 14, 20 + 2 + 8}, a.drawnAt[1])
-	require.Equal(t, [2]int16{10 + 4 + 58, 20 + 2 + 13}, b.drawnAt[1])
+	check.Equal(t, [2]int16{10 + 4 + 14, 20 + 2 + 8}, a.drawnAt[1])
+	check.Equal(t, [2]int16{10 + 4 + 58, 20 + 2 + 13}, b.drawnAt[1])
 }
 
 func TestArrangerMeasuresAZeroSizedContainer(t *testing.T) {
@@ -38,7 +38,7 @@ func TestArrangerMeasuresAZeroSizedContainer(t *testing.T) {
 			&drawRecorder{WidgetBase: ui.NewWidgetBase(20, 10)},
 			&drawRecorder{WidgetBase: ui.NewWidgetBase(30, 5)}))
 	w, h := c.Size()
-	require.Equal(t, [2]uint16{30 + 6, 17 + 2}, [2]uint16{w, h})
+	check.Equal(t, [2]uint16{30 + 6, 17 + 2}, [2]uint16{w, h})
 }
 
 // Drawing a container tree into a plain context allocates nothing: children

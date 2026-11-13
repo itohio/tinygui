@@ -6,9 +6,9 @@ import (
 
 	ui "github.com/itohio/tinygui"
 	"github.com/itohio/tinygui/container"
+	"github.com/itohio/tinygui/internal/check"
 	"github.com/itohio/tinygui/layout"
 	"github.com/itohio/tinygui/widget"
-	"github.com/stretchr/testify/require"
 	"tinygo.org/x/tinyfont"
 )
 
@@ -22,21 +22,21 @@ func TestModalOverlayBlocksTheNavigator(t *testing.T) {
 	root := container.New[ui.Widget](100, 40, container.WithLayout[ui.Widget](layout.HList(1)), container.WithChildren[ui.Widget](a, b))
 	overlay := container.NewOverlay(root)
 	nav := ui.NewNavigator(root)
-	require.True(t, nav.Focus(0))
+	check.True(t, nav.Focus(0))
 
 	dialog := widget.NewDialog(overlayStyle, "Sure?", nil, []string{"Yes", "No"}, nil, nil)
-	require.True(t, overlay.OpenCentered(dialog))
-	require.True(t, overlay.ModalFor(root))
-	require.False(t, nav.Next(), "Next behind a modal dialog")
-	require.False(t, nav.Enter(), "Enter behind a modal dialog")
-	require.False(t, nav.Back(), "Back behind a modal dialog")
-	require.True(t, a.focused)
-	require.False(t, b.focused)
+	check.True(t, overlay.OpenCentered(dialog))
+	check.True(t, overlay.ModalFor(root))
+	check.False(t, nav.Next(), "Next behind a modal dialog")
+	check.False(t, nav.Enter(), "Enter behind a modal dialog")
+	check.False(t, nav.Back(), "Back behind a modal dialog")
+	check.True(t, a.focused)
+	check.False(t, b.focused)
 
 	overlay.Close(dialog)
-	require.False(t, overlay.ModalFor(root))
-	require.True(t, nav.Next())
-	require.True(t, b.focused)
+	check.False(t, overlay.ModalFor(root))
+	check.True(t, nav.Next())
+	check.True(t, b.focused)
 }
 
 // Enter on an Activator acts at once instead of entering edit mode: a
@@ -53,17 +53,17 @@ func TestEnterActivatesDropdownsAndToggles(t *testing.T) {
 	obs := &recordObserver{}
 	nav.AddObserver(obs)
 
-	require.True(t, nav.Focus(0))
-	require.True(t, nav.Enter())
-	require.NotNil(t, overlay.Top(), "the dropdown's list opened")
-	require.False(t, root.Active(), "nothing left in edit mode")
-	require.Equal(t, ui.NavigatorEventActed, obs.events[len(obs.events)-1].Type)
+	check.True(t, nav.Focus(0))
+	check.True(t, nav.Enter())
+	check.NotNil(t, overlay.Top(), "the dropdown's list opened")
+	check.False(t, root.Active(), "nothing left in edit mode")
+	check.Equal(t, ui.NavigatorEventActed, obs.events[len(obs.events)-1].Type)
 	overlay.Interact(ui.BACK) // close the list
 
-	require.True(t, nav.Next())
-	require.True(t, nav.Enter())
-	require.True(t, on, "the toggle flipped")
-	require.False(t, root.Active())
-	require.True(t, nav.Enter())
-	require.False(t, on)
+	check.True(t, nav.Next())
+	check.True(t, nav.Enter())
+	check.True(t, on, "the toggle flipped")
+	check.False(t, root.Active())
+	check.True(t, nav.Enter())
+	check.False(t, on)
 }

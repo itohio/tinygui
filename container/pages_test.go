@@ -5,7 +5,7 @@ import (
 
 	ui "github.com/itohio/tinygui"
 	"github.com/itohio/tinygui/container"
-	"github.com/stretchr/testify/require"
+	"github.com/itohio/tinygui/internal/check"
 )
 
 type pageWidget struct {
@@ -47,34 +47,34 @@ func newPagesFixture(n, keep, history int) *pagesFixture {
 func TestPagesBuildLazilyAndKeepABoundedNumber(t *testing.T) {
 	f := newPagesFixture(6, 3, 8)
 	p := f.pages
-	require.Equal(t, 0, p.Built())
-	require.Nil(t, p.Current())
+	check.Equal(t, 0, p.Built())
+	check.Nil(t, p.Current())
 
 	for _, i := range []int{0, 1, 2, 1, 0} {
 		p.Show(i)
-		require.Equal(t, i, p.Index())
+		check.Equal(t, i, p.Index())
 	}
-	require.Equal(t, []int{1, 1, 1, 0, 0, 0}, f.builds, "each built once while kept")
-	require.Equal(t, 3, p.Built())
-	require.Empty(t, f.released)
+	check.Equal(t, []int{1, 1, 1, 0, 0, 0}, f.builds, "each built once while kept")
+	check.Equal(t, 3, p.Built())
+	check.Empty(t, f.released)
 
 	p.Show(3) // 2 is the least recently shown
-	require.Equal(t, []int{2}, f.released)
-	require.Nil(t, p.Page(2))
-	require.NotNil(t, p.Page(3))
-	require.Equal(t, 3, p.Built())
+	check.Equal(t, []int{2}, f.released)
+	check.Nil(t, p.Page(2))
+	check.NotNil(t, p.Page(3))
+	check.Equal(t, 3, p.Built())
 
 	p.Show(2) // rebuilt; now 1 is the oldest
-	require.Equal(t, []int{2, 1}, f.released)
-	require.Equal(t, 2, f.builds[2])
+	check.Equal(t, []int{2, 1}, f.released)
+	check.Equal(t, 2, f.builds[2])
 
 	f2 := newPagesFixture(4, 1, 4) // Keep 1: only the page on screen
 	for i := range 4 {
 		f2.pages.Show(i)
-		require.NotNil(t, f2.pages.Current())
-		require.Equal(t, 1, f2.pages.Built())
+		check.NotNil(t, f2.pages.Current())
+		check.Equal(t, 1, f2.pages.Built())
 	}
-	require.Equal(t, []int{0, 1, 2}, f2.released)
+	check.Equal(t, []int{0, 1, 2}, f2.released)
 }
 
 // Back returns through the pages shown before, newest first, at most
@@ -85,15 +85,15 @@ func TestPagesBackThroughABoundedHistory(t *testing.T) {
 	for i := range 6 {
 		p.Show(i)
 	}
-	require.Equal(t, 3, p.HistoryLen())
+	check.Equal(t, 3, p.HistoryLen())
 	var got []int
 	for p.Back() {
 		got = append(got, p.Index())
-		require.NotNil(t, p.Current())
+		check.NotNil(t, p.Current())
 	}
-	require.Equal(t, []int{4, 3, 2}, got, "the 3 most recent, newest first")
-	require.Equal(t, 2, f.builds[2], "2 had been released and is rebuilt")
-	require.False(t, p.Back())
+	check.Equal(t, []int{4, 3, 2}, got, "the 3 most recent, newest first")
+	check.Equal(t, 2, f.builds[2], "2 had been released and is rebuilt")
+	check.False(t, p.Back())
 }
 
 // Showing built pages, going back and drawing allocate nothing in Pages.
@@ -112,8 +112,8 @@ func TestPagesNavigateWithoutAllocating(t *testing.T) {
 		p.Back()
 		p.Show(2)
 	})
-	require.Zero(t, allocs)
-	require.Equal(t, []int{1, 1, 1}, f.builds)
+	check.Zero(t, allocs)
+	check.Equal(t, []int{1, 1, 1}, f.builds)
 }
 
 // BuildAll builds every page up front (in setup): showing pages afterwards,
@@ -123,9 +123,9 @@ func TestPagesBuildAllUpFront(t *testing.T) {
 	f := newPagesFixture(5, 5, 4)
 	p := f.pages
 	p.BuildAll()
-	require.Equal(t, []int{1, 1, 1, 1, 1}, f.builds)
-	require.Equal(t, 5, p.Built())
-	require.Equal(t, -1, p.Index(), "nothing shown yet")
+	check.Equal(t, []int{1, 1, 1, 1, 1}, f.builds)
+	check.Equal(t, 5, p.Built())
+	check.Equal(t, -1, p.Index(), "nothing shown yet")
 	walk := func() {
 		for i := range 5 {
 			p.Show(i)
@@ -134,13 +134,13 @@ func TestPagesBuildAllUpFront(t *testing.T) {
 		p.Back()
 	}
 	walk()
-	require.Equal(t, []int{1, 1, 1, 1, 1}, f.builds)
-	require.Empty(t, f.released)
-	require.Zero(t, testing.AllocsPerRun(20, walk))
+	check.Equal(t, []int{1, 1, 1, 1, 1}, f.builds)
+	check.Empty(t, f.released)
+	check.Zero(t, testing.AllocsPerRun(20, walk))
 }
 
 // BuildAll with Keep smaller than the page count would build pages only to
 // release them: it panics instead (a setup mistake).
 func TestPagesBuildAllNeedsRoomForEveryPage(t *testing.T) {
-	require.Panics(t, func() { newPagesFixture(5, 3, 4).pages.BuildAll() })
+	check.Panics(t, func() { newPagesFixture(5, 3, 4).pages.BuildAll() })
 }

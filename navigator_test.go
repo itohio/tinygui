@@ -5,8 +5,8 @@ import (
 
 	ui "github.com/itohio/tinygui"
 	"github.com/itohio/tinygui/container"
+	"github.com/itohio/tinygui/internal/check"
 	"github.com/itohio/tinygui/layout"
-	"github.com/stretchr/testify/require"
 )
 
 type eventWidget struct {
@@ -74,18 +74,18 @@ func TestNavigatorFocusTransitions(t *testing.T) {
 	)
 	nav := ui.NewNavigator(root)
 
-	require.True(t, nav.Focus(0))
-	require.True(t, a.focused)
-	require.False(t, b.focused)
+	check.True(t, nav.Focus(0))
+	check.True(t, a.focused)
+	check.False(t, b.focused)
 
-	require.True(t, nav.Next())
-	require.False(t, a.focused)
-	require.True(t, b.focused)
+	check.True(t, nav.Next())
+	check.False(t, a.focused)
+	check.True(t, b.focused)
 
-	require.False(t, nav.Next())
-	require.True(t, nav.Prev())
-	require.True(t, a.focused)
-	require.False(t, b.focused)
+	check.False(t, nav.Next())
+	check.True(t, nav.Prev())
+	check.True(t, a.focused)
+	check.False(t, b.focused)
 }
 
 func TestNavigatorActivationAndBack(t *testing.T) {
@@ -95,7 +95,8 @@ func TestNavigatorActivationAndBack(t *testing.T) {
 		container.WithLayout[ui.Widget](layout.VList(1)),
 		container.WithChildren[ui.Widget](childA, childB),
 	)
-	require.Implements(t, (*ui.Navigable)(nil), childContainer)
+	_, isNav := any(childContainer).(ui.Navigable)
+	check.True(t, isNav, "the child container is a ui.Navigable")
 
 	parentWidgets := []ui.Widget{childContainer, newEventWidget()}
 	root := container.New[ui.Widget](0, 0,
@@ -104,28 +105,28 @@ func TestNavigatorActivationAndBack(t *testing.T) {
 	)
 	nav := ui.NewNavigator(root)
 
-	require.True(t, nav.Focus(0))
-	require.Equal(t, 0, root.Index())
+	check.True(t, nav.Focus(0))
+	check.Equal(t, 0, root.Index())
 	_, navigable := root.Item().(ui.Navigable)
-	require.True(t, navigable)
-	require.True(t, nav.Enter())
-	require.Equal(t, 2, nav.Depth())
-	require.True(t, childContainer.Active())
-	require.True(t, childContainer.Index() >= 0)
+	check.True(t, navigable)
+	check.True(t, nav.Enter())
+	check.Equal(t, 2, nav.Depth())
+	check.True(t, childContainer.Active())
+	check.True(t, childContainer.Index() >= 0)
 
-	require.True(t, nav.Next())
-	require.True(t, childB.focused)
-	require.False(t, childA.focused)
+	check.True(t, nav.Next())
+	check.True(t, childB.focused)
+	check.False(t, childA.focused)
 
-	require.True(t, nav.Enter())
-	require.True(t, childB.activated)
+	check.True(t, nav.Enter())
+	check.True(t, childB.activated)
 
-	require.True(t, nav.Back())
-	require.False(t, childB.activated)
-	require.Equal(t, 2, nav.Depth())
+	check.True(t, nav.Back())
+	check.False(t, childB.activated)
+	check.Equal(t, 2, nav.Depth())
 
-	require.True(t, nav.Back())
-	require.Equal(t, 1, nav.Depth())
+	check.True(t, nav.Back())
+	check.Equal(t, 1, nav.Depth())
 }
 
 func TestNavigatorObserversReceiveEvents(t *testing.T) {
@@ -137,18 +138,18 @@ func TestNavigatorObserversReceiveEvents(t *testing.T) {
 	rec := &recordObserver{}
 	nav.AddObserver(rec)
 
-	require.True(t, nav.Focus(0))
-	require.True(t, nav.Next())
-	require.True(t, nav.Enter())
+	check.True(t, nav.Focus(0))
+	check.True(t, nav.Next())
+	check.True(t, nav.Enter())
 
-	require.NotEmpty(t, rec.events)
+	check.NotEmpty(t, rec.events)
 	types := make([]ui.NavigatorEventType, 0, len(rec.events))
 	for _, event := range rec.events {
 		types = append(types, event.Type)
-		require.NotNil(t, event.Path.Current())
+		check.NotNil(t, event.Path.Current())
 	}
-	require.Contains(t, types, ui.NavigatorEventFocusChanged)
-	require.Contains(t, types, ui.NavigatorEventActivated)
+	check.Contains(t, types, ui.NavigatorEventFocusChanged)
+	check.Contains(t, types, ui.NavigatorEventActivated)
 }
 
 func TestNavigatorWalk(t *testing.T) {
@@ -170,7 +171,7 @@ func TestNavigatorWalk(t *testing.T) {
 		return true
 	})
 
-	require.GreaterOrEqual(t, visited, 3)
+	check.GreaterOrEqual(t, visited, 3)
 }
 
 func TestNavigatorSkipsNonSelectableWidgets(t *testing.T) {
@@ -182,12 +183,12 @@ func TestNavigatorSkipsNonSelectableWidgets(t *testing.T) {
 	)
 	nav := ui.NewNavigator(root)
 
-	require.True(t, nav.Focus(0))
-	require.True(t, dynamic.focused)
-	require.Equal(t, 1, root.Index())
+	check.True(t, nav.Focus(0))
+	check.True(t, dynamic.focused)
+	check.Equal(t, 1, root.Index())
 
-	require.False(t, nav.Prev())
-	require.True(t, dynamic.focused)
+	check.False(t, nav.Prev())
+	check.True(t, dynamic.focused)
 }
 
 type countObserver struct{ n int }
@@ -224,8 +225,8 @@ func TestNavigatorNavigatesWithoutAllocating(t *testing.T) {
 		_ = nav.Path()
 		nav.Walk(func(ui.Path) bool { return true })
 	})
-	require.Zero(t, allocs)
-	require.Positive(t, obs.n)
+	check.Zero(t, allocs)
+	check.Positive(t, obs.n)
 }
 
 // The stack is bounded: entering containers nested deeper than MaxNavDepth
@@ -241,10 +242,10 @@ func TestNavigatorStackIsBounded(t *testing.T) {
 	nav := ui.NewNavigator(w.(ui.Navigable))
 	for nav.Enter() {
 	}
-	require.Equal(t, ui.MaxNavDepth, nav.Depth())
+	check.Equal(t, ui.MaxNavDepth, nav.Depth())
 	for range ui.MaxNavDepth {
 		nav.Back()
 		nav.Back()
 	}
-	require.Equal(t, 1, nav.Depth())
+	check.Equal(t, 1, nav.Depth())
 }

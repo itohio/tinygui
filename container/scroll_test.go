@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	ui "github.com/itohio/tinygui"
+	"github.com/itohio/tinygui/internal/check"
 	"github.com/itohio/tinygui/layout"
-	"github.com/stretchr/testify/require"
 )
 
 type dummyWidget struct {
@@ -32,15 +32,15 @@ func TestScrollClampsOffsets(t *testing.T) {
 	widget := newDummyWidget(50, 50)
 	sc := NewScroll(20, 20, layout.HList(0), widget)
 
-	require.True(t, sc.Scroll(15, 15))
+	check.True(t, sc.Scroll(15, 15))
 	ox, oy := sc.ScrollOffset()
-	require.Equal(t, int16(15), ox)
-	require.Equal(t, int16(15), oy)
+	check.Equal(t, int16(15), ox)
+	check.Equal(t, int16(15), oy)
 
-	require.True(t, sc.Scroll(100, 100))
+	check.True(t, sc.Scroll(100, 100))
 	ox, oy = sc.ScrollOffset()
-	require.Equal(t, int16(30), ox)
-	require.Equal(t, int16(30), oy)
+	check.Equal(t, int16(30), ox)
+	check.Equal(t, int16(30), oy)
 }
 
 func TestScrollObservers(t *testing.T) {
@@ -49,11 +49,11 @@ func TestScrollObservers(t *testing.T) {
 	rec := &recordingObserver{}
 	sc.AddObserver(rec)
 
-	require.True(t, sc.Scroll(10, 0))
-	require.Equal(t, int16(10), rec.last.DX)
-	require.Equal(t, int16(0), rec.last.DY)
-	require.Equal(t, int16(10), rec.last.OffsetX)
-	require.Equal(t, int16(0), rec.last.OffsetY)
+	check.True(t, sc.Scroll(10, 0))
+	check.Equal(t, int16(10), rec.last.DX)
+	check.Equal(t, int16(0), rec.last.DY)
+	check.Equal(t, int16(10), rec.last.OffsetX)
+	check.Equal(t, int16(0), rec.last.OffsetY)
 }
 
 type drawRecorder struct {
@@ -75,16 +75,16 @@ func TestScrollDrawsContentBeyondViewport(t *testing.T) {
 		widgets[i] = rows[i]
 	}
 	sc := NewScroll(20, 30, layout.VList(0), widgets...) // 3 of 6 rows visible
-	require.True(t, sc.Scroll(0, 30))                    // rows 3..5 now visible
+	check.True(t, sc.Scroll(0, 30))                      // rows 3..5 now visible
 
 	ctx := ui.NewContext(nil, 100, 100, 0, 0)
 	sc.Draw(&ctx)
 
 	for i := 3; i < 6; i++ {
-		require.Len(t, rows[i].drawnAt, 1, "row %d", i)
-		require.Equal(t, [2]int16{0, int16(i-3) * 10}, rows[i].drawnAt[0], "row %d", i)
+		check.Len(t, rows[i].drawnAt, 1, "row %d", i)
+		check.Equal(t, [2]int16{0, int16(i-3) * 10}, rows[i].drawnAt[0], "row %d", i)
 	}
 	for i := 0; i < 3; i++ {
-		require.Empty(t, rows[i].drawnAt, "row %d is scrolled out", i)
+		check.Empty(t, rows[i].drawnAt, "row %d is scrolled out", i)
 	}
 }
