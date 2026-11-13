@@ -43,9 +43,9 @@ func drawAt(t *testing.T, w, h uint16, a layout.Arranger, kids ...*spot) [][2]in
 }
 
 // Review R-TG-1 L1: an arranged child whose position lies outside the
-// container's box (negative, or beyond it) is drawn at that position,
-// partly clipped — not at the previous child's position, which is where
-// SetPos's refusal left the cursor.
+// container's box (negative, or beyond it) is drawn at that position, in
+// full (nothing clips: findings F-13), not at the previous child's position,
+// which is where SetPos's refusal left the cursor.
 func TestArrangedChildrenKeepPositionsOutsideTheBox(t *testing.T) {
 	t.Run("row centred across a box shorter than its tallest child", func(t *testing.T) {
 		tall, short := newSpot(20, 20), newSpot(20, 4) // y = (10-20)/2 = -5

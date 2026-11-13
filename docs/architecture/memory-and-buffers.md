@@ -56,6 +56,8 @@ Measured (TinyGo 0.43, 10 kept `new([16]byte)`): `MemStats.Mallocs` +0, `runtime
 
 On Go, `mallocs()` counts from the heap profile (`runtime.MemProfileRate = 1`; `runtime.GC` publishes it, `runtime.MemProfile` reads it): the allocations with this module's code on the stack, except the runtime's own caches for interface type assertions and type switches (`runtime.buildTypeAssertCache`, `runtime.buildInterfaceSwitchCache` in `runtime/iface.go`). The runtime fills those per-call-site caches at random (about 1 miss in 1000, doubled as they grow): about 180 objects over the first ~1500 soak rounds, a different count each run (`docs/evidence/go-soak-allocs/`). Leaving out exactly those stacks makes the Go count exact and the same every run, from the first round; TinyGo has no such cache.
 
+The root, `layout` and `container` tests use `internal/check` (assertions on plain `testing`), so they run under `tinygo test -gc=leaking` too. testify panics under `tinygo test` (reflection) before any test runs. The `widget` package's tests still use testify and are host checks. The library-wide allocation checks live in `internal/refapp`.
+
 | Check | How | Run |
 |---|---|---|
 | menu-driven soak | a reference app over every widget, container, overlay, `Pages`, the navigator, animation and text; 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history after setup, each followed by a command-mux replay of an 8-line console session: **exactly 0** allocations on Go and on TinyGo (default GC and `-gc=leaking`) | `go test ./internal/refapp`, `tinygo test ./internal/refapp`, `tinygo test -gc=leaking ./internal/refapp` |
