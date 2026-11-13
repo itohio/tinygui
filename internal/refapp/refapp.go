@@ -36,6 +36,11 @@ var (
 	style = widget.OverlayStyle{Font: font, LineH: 12, FG: fg, BG: bg, Border: track, Accent: acc}
 )
 
+var ringStyle = widget.RingStyle{Track: track, Fill: acc, BG: bg, Font: font, Label: fg}
+
+var statStyle = widget.StatBandStyle{BG: bg, Zone: track, Threshold: acc, Drift: fg,
+	States: [3]color.RGBA{good, acc, fg}}
+
 // App is the reference UI: a root column of a page area (container.Pages)
 // over an Overlay, a navigator per page, animated values.
 type App struct {
@@ -62,6 +67,7 @@ type App struct {
 	pix16               []uint16
 	pix8                []uint8
 	dialog              *widget.Dialog
+	stat                *widget.StatBand // a column pushed every frame
 	dropdown            *widget.Dropdown
 	log                 *widget.InteractiveLog
 	events              int
@@ -139,6 +145,9 @@ func (a *App) pageWidgets() ui.Widget {
 		widget.NewSeparator(100, 3, track),
 		widget.NewGauge[float32](100, 10, &a.curve[0], 0, 100, acc, track),
 		widget.NewVerticalGauge[float32](10, 40, &a.level, 0, 100, good, track),
+		// the animated value: the arc and its percent label change every frame
+		widget.NewRing[float32](40, 40, &a.curve[0], 0, 100, ringStyle,
+			widget.WithPercentLabel(), widget.WithCap(widget.RingCapRound), widget.WithThickness(6)),
 		widget.NewMultiGauge[float32](100, 10, 0, 100, &a.mix, []color.RGBA{acc, good, fg}, track, fg),
 		widget.NewVolumeGauge[float32](100, 12, &a.level, 0, 100, 10, good, track),
 		widget.NewSolidGauge[float32](100, 12, &a.curve[0], 0, 100, acc, track),
@@ -146,9 +155,17 @@ func (a *App) pageWidgets() ui.Widget {
 		widget.NewBitmap8(32, 24, a.pix8),
 		widget.NewCellGrid(16, 12, 4, 1, widget.CellRound, a.cells, []color.RGBA{bg, acc, good, fg}, track),
 		scope(a.samples),
+		a.statBand(),
 	)
 	a.navs[0] = a.nav(p)
 	return p
+}
+
+// statBand is a calibration strip (ux's 26 rows, a zone of ±1 in a full
+// scale of ±3); Frame pushes a column every frame, so the soak covers Push.
+func (a *App) statBand() ui.Widget {
+	a.stat = widget.NewStatBand(150, 26, 3, statStyle, widget.WithBandZone(1))
+	return a.stat
 }
 
 func scope(samples []uint16) ui.Widget {
@@ -226,6 +243,10 @@ func (a *App) Frame() {
 	if a.anim.Update(a.curve[:], a.now) {
 		a.curveFrom, a.curveTo = a.curveTo, a.curveFrom
 		a.anim.Start(a.curveFrom[:], a.curveTo[:], a.now)
+	}
+	if a.stat != nil { // the eased value as the mean, a saw as the spread
+		f := a.now / 33_000
+		a.stat.Push((a.curve[0]-50)/25, float32(f%7)/4, uint8(f%3))
 	}
 	for b := range H / BandH {
 		a.FB.SetY0(int16(b * BandH))

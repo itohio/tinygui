@@ -40,6 +40,8 @@ The library has no static RAM except the 1 536 B PNG line buffer, linked only wi
 | `MultilineBase.lines` | widget; `SetLines` copies the slice of string headers (`append(m.lines[:0], …)`) | widget | `widget/multiline.go:71-73` |
 | `Log.lines` | widget; re-allocated on every append at capacity | widget | `widget/multiline.go:201-209` |
 | Multi-gauge pending/original | widget; fixed `[4]T` arrays | widget | `widget/interactive_gauge.go:209-210` |
+| Ring percent label and arc cache | widget; fixed `[4]byte` ("100%"), the arc-raster geometry (integer radii, Q14 edge vectors, cap centres) and a row-run painter as struct fields, recomputed in place when the value or size changes | widget | `widget/ring.go`, `widget/arcraster.go` |
+| `StatBand` history | widget; a ring buffer of `width` columns of 3 bytes (mean row, band half-height, state), allocated in `NewStatBand` (162 columns: 486 B; six strips: under 3 KB), written by `Push` with a head index, read across the wrap by `Draw`; the 2×3 blended band colours (+ the newest column's) precomputed at construction | widget | `widget/statband.go` |
 | Container visibility map | container, `map[ui.Widget]bool`, one entry per child | container | `container/base.go:20`, `:313-325` |
 | Command line buffer | mux, `make([]byte, 0, 128)`, grows with `append` beyond 128 | mux | `mux.go:23`, `:55`, `:69` |
 | Navigator stack/observers | navigator slices, grow with depth/observers | navigator | `navigator.go:40-59` |
@@ -68,7 +70,7 @@ The root, `layout` and `container` tests use `internal/check` (assertions on pla
 |---|---|---|
 | menu-driven soak | a reference app (every widget, container, overlay, `Pages`, the navigator, animation, text) through 20 rounds of focus moves, edits, list scrolling, dropdown, dialog, page history, each followed by a command-mux replay of an 8-line console session: exactly 0 on Go and on TinyGo (default GC and `-gc=leaking`) | `TestSoakDoesNotAllocate` |
 | no GC at all | the soak as a program under the leaking allocator | `tinygo run -gc=leaking ./internal/refapp/cmd/refsoak` → "50 rounds, 0 allocations after setup" |
-| per widget | exactly 0 over 50 runs of each listed widget's `Draw` and of a command sequence (icons included: decoded once at construction), the overlays, animation, `Log.Append`, a screensaver frame | `TestWidgetsDrawAndInteractWithoutAllocating` |
+| per widget | exactly 0 over 50 runs of each listed widget's `Draw` and of a command sequence (icons included: decoded once at construction), the overlays, animation, `Log.Append`, a screensaver frame, a `Ring` whose value changes every draw (arc geometry and percent label recomputed; the soak's `Widgets` page also has an animated ring) | `TestWidgetsDrawAndInteractWithoutAllocating` |
 | first draw | containers and grids size their buffers when built | `TestFirstDrawDoesNotAllocate` |
 | console | the command mux reads and dispatches lines: exactly 0 over 50 replays of an 8-line session | `TestCommandMuxDispatchesWithoutAllocating` |
 | pages without a GC | the default `Keep` (every page; `WithKeep(n)` with n ≥ the page count does the same) and `BuildAll` in setup: a walk (`Show` each page, then `Back`, with a `Draw` after each) allocates nothing; with fewer kept (`WithKeep(n)`, saving the memory of the released pages), rebuilds allocate. Runs on Go and under TinyGo with either GC; `container` `TestPagesDefaultKeepsEveryPage` counts the zero exactly with no options | `TestPagesWithoutGCNeedEveryPageKept` |

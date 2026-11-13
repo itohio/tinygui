@@ -123,6 +123,10 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 	log.SetCapacity(8)
 	sc := widget.NewScope(100, 50, widget.ScopeStyle{BG: bg, Grid: track, Axis: track, Trace: good, Marker: acc})
 	sc.Samples, sc.Hi, sc.Trigger, sc.TrigAt = samples, 50, 20, 30
+	sb := widget.NewStatBand(162, 26, 3, statStyle, widget.WithBandZone(1))
+	for i := range 200 { // wrapped: Draw reads across the ring buffer's end
+		sb.Push(float32(i%7-3)/2, float32(i%5)/2, uint8(i%3))
+	}
 	rows := []ui.Widget{widget.NewLabel(80, 11, font, func() string { return "row" }, fg),
 		widget.NewLabel(80, 11, font, func() string { return "row" }, fg)}
 	host := container.NewOverlay(container.New[ui.Widget](W, BandH))
@@ -149,10 +153,15 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		{"MultiGauge", widget.NewMultiGauge[float32](80, 10, 0, 100, &mix, cols, track, fg), nil},
 		{"VolumeGauge", widget.NewVolumeGauge[float32](80, 12, &f32, 0, 100, 10, good, track), nil},
 		{"SolidGauge", widget.NewSolidGauge[float32](80, 12, &f32, 0, 100, acc, track), nil},
+		{"Ring", widget.NewRing[float32](60, 60, &f32, 0, 100, ringStyle, widget.WithPercentLabel()), nil},
+		{"Ring(round, ccw, custom label)", widget.NewRing[float32](50, 40, &f32, 0, 100, ringStyle,
+			widget.WithCap(widget.RingCapRound), widget.WithCounterClockwise(), widget.WithStartAngle(225),
+			widget.WithThickness(9), widget.WithLabel(func() string { return "cal" })), nil},
 		{"Bitmap16", widget.NewBitmap16(16, 16, pix16), nil},
 		{"Bitmap8", widget.NewBitmap8(16, 16, pix8), nil},
 		{"CellGrid", widget.NewCellGrid(8, 8, 4, 1, widget.CellRound, cells, cols, bg), nil},
 		{"Scope", sc, nil},
+		{"StatBand", sb, nil},
 		{"Toggle", widget.NewToggle(60, 12, font, fg, "ON", "OFF", good, track, func() bool { return on }, func(v bool) { on = v }),
 			[]ui.UserCommand{ui.ENTER, ui.ENTER}},
 		{"InteractiveLabel[int]", widget.NewInteractiveLabel[int](80, 11, widget.WithValue(&i32), widget.WithRange(0, 100),
@@ -230,10 +239,39 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 	if n := allocsIn(runs, step); n != 0 {
 		t.Errorf("animation: %d allocations in %d updates", n, runs)
 	}
+	pushes := 0
+	push := func() { // a column per frame, as the calibration page does
+		pushes++
+		sb.Push(float32(pushes%9-4)/2, float32(pushes%4)/3, uint8(pushes%3))
+		sb.Draw(&ctx)
+	}
+	push()
+	if n := allocsIn(runs, push); n != 0 {
+		t.Errorf("StatBand: %d allocations in %d pushes and draws", n, runs)
+	}
+	sb.Reset()
+	if n := allocsIn(runs, push); n != 0 {
+		t.Errorf("StatBand after Reset: %d allocations in %d pushes and draws", n, runs)
+	}
 	appendLine := func() { log.Append("a log line") }
 	appendLine()
 	if n := allocsIn(runs, appendLine); n != 0 {
 		t.Errorf("Log.Append: %d allocations in %d appends", n, runs)
+	}
+	// a ring whose value changes every draw: the arc's geometry is
+	// recomputed (float32 sine/cosine), the percent label reformatted
+	ringV := float32(0)
+	ring := widget.NewRing[float32](60, 60, &ringV, 0, 100, ringStyle, widget.WithPercentLabel(), widget.WithCap(widget.RingCapRound))
+	fillRing := func() {
+		ringV += 7.3
+		if ringV > 110 {
+			ringV = -10 // through both clamps
+		}
+		ring.Draw(&ctx)
+	}
+	fillRing()
+	if n := allocsIn(runs, fillRing); n != 0 {
+		t.Errorf("Ring with a changing value: %d allocations in %d draws", n, runs)
 	}
 	// a screensaver: a RandomContext moved every frame, its text drawn through
 	// a reused child context (verify H-2: Clone allocated per frame)
@@ -303,6 +341,9 @@ func TestFirstDrawDoesNotAllocate(t *testing.T) {
 		}},
 		{"CellGrid", func() ui.Widget {
 			return widget.NewCellGrid(8, 8, 4, 1, widget.CellRound, cells, []color.RGBA{fg, bg}, bg)
+		}},
+		{"StatBand", func() ui.Widget {
+			return widget.NewStatBand(162, 26, 3, statStyle, widget.WithBandZone(1))
 		}},
 	}
 	const copies = 20
