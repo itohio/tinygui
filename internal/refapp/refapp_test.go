@@ -1,7 +1,10 @@
 package refapp
 
 import (
+	"bytes"
+	"image"
 	"image/color"
+	"image/png"
 	"io"
 	"testing"
 
@@ -113,6 +116,7 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		lines         = []string{"one", "two", "three"}
 	)
 	cols := []color.RGBA{fg, acc, good}
+	icons := []string{pngOf(8, 8, acc), pngOf(8, 8, good), pngOf(8, 8, fg)}
 	ml := widget.NewMultilineLabel(100, 11, 3, widget.WithMultilineFont(font), widget.WithMultilineColor(fg))
 	ml.SetLines(lines)
 	log := widget.NewInteractiveLog(100, 11, 3, widget.WithMultilineFont(font), widget.WithMultilineColor(fg))
@@ -167,6 +171,10 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		{"Base(HFlow)", container.New[ui.Widget](200, 40, container.WithLayout[ui.Widget](layout.HFlow(2, 200)),
 			container.WithChildren[ui.Widget](widget.NewLabel(60, 11, font, func() string { return "a" }, fg), widget.NewSeparator(60, 3, fg))),
 			[]ui.UserCommand{ui.NEXT, ui.PREV}},
+		// icons decoded at construction: a press switches, a draw blits
+		// (verify TG-1-postcommit R7: re-decoding per press, 32–48 allocations)
+		{"InteractiveIcon", widget.NewInteractiveIcon(8, 8, icons), []ui.UserCommand{ui.UP, ui.DOWN, ui.UP}},
+		{"InteractiveIconChoice", widget.NewInteractiveIconChoice(8, 8, icons), []ui.UserCommand{ui.UP, ui.DOWN, ui.UP}},
 		{"Base(Wrap)", container.New[ui.Widget](200, 40, container.WithArranger[ui.Widget](&layout.Wrap{Gap: 2}),
 			container.WithChildren[ui.Widget](widget.NewSeparator(60, 3, fg), widget.NewSeparator(60, 3, fg))), nil},
 		{"ScrollChoice", container.NewScrollChoice(90, 20, layout.VList(1), rows), []ui.UserCommand{ui.DOWN, ui.UP}},
@@ -308,4 +316,17 @@ func TestFirstDrawDoesNotAllocate(t *testing.T) {
 			t.Errorf("%s: %d allocations in %d first draws", mk.name, n, copies)
 		}
 	}
+}
+
+// pngOf encodes a w×h PNG of one colour (setup for the icon cases).
+func pngOf(w, h int, c color.RGBA) string {
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for i := 0; i < len(img.Pix); i += 4 {
+		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = c.R, c.G, c.B, c.A
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		panic(err)
+	}
+	return b.String()
 }

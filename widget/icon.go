@@ -82,3 +82,35 @@ func NewIconArray(w, h uint16, image ...func() string) []ui.Widget {
 	}
 	return widgets
 }
+
+// iconSheet holds a set of icons decoded once, at construction, into one
+// RGB565 buffer (n·w·h pixels): switching icons on a press is an index
+// change, drawing one a single blit — no PNG decode, no allocation after
+// setup (verify TG-1-postcommit R7: re-decoding on every press made 32–48
+// allocations).
+type iconSheet struct {
+	w, h int16
+	pix  []uint16
+	ok   []bool // icon i decoded
+}
+
+func newIconSheet(w, h uint16, images []string) iconSheet {
+	n := int(w) * int(h)
+	s := iconSheet{w: int16(w), h: int16(h), pix: make([]uint16, n*len(images)), ok: make([]bool, len(images))}
+	for i, img := range images {
+		s.ok[i] = img != "" && ui.DecodePng(s.pix[i*n:(i+1)*n], s.w, s.h, img) == nil
+	}
+	return s
+}
+
+// draw blits icon i at the context's position (nothing for a bad index or
+// an icon that didn't decode, or a display without bitmaps).
+func (s *iconSheet) draw(ctx ui.Context, i int) {
+	bmp, isBmp := ctx.D().(ui.BitmapDisplayer)
+	if !isBmp || i < 0 || i >= len(s.ok) || !s.ok[i] {
+		return
+	}
+	n := int(s.w) * int(s.h)
+	x, y := ctx.DisplayPos()
+	_ = bmp.DrawRGBBitmap(x, y, s.pix[i*n:(i+1)*n], s.w, s.h)
+}

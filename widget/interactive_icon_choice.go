@@ -2,12 +2,13 @@ package widget
 
 import ui "github.com/itohio/tinygui"
 
-// InteractiveIconChoice renders selectable image data via an Icon widget while using InteractiveSelector for navigation.
+// InteractiveIconChoice renders one of several PNG images, chosen with an
+// InteractiveSelector. The images are decoded once, at construction (w·h·2
+// bytes each); a press only moves the selection.
 type InteractiveIconChoice struct {
-	*Icon
+	ui.WidgetBase
 	selector *InteractiveSelector[string]
-	onChange func(int, string)
-	current  string
+	sheet    iconSheet
 }
 
 // InteractiveIconChoiceOption configures icon choice construction.
@@ -46,25 +47,25 @@ func NewInteractiveIconChoice(width, height uint16, images []string, opts ...Int
 		opt(&cfg)
 	}
 
-	choice := &InteractiveIconChoice{}
+	choice := &InteractiveIconChoice{
+		WidgetBase: ui.NewWidgetBase(width, height),
+		sheet:      newIconSheet(width, height, images),
+	}
 	selectorOpts := cfg.selectorOpts
-	selectorOpts = append(selectorOpts, WithSelectorChange[string](func(i int, image string) {
-		choice.current = image
-		choice.Icon.SetImage(image)
-		if cfg.onChange != nil {
-			cfg.onChange(i, image)
-		}
-	}))
-
-	selector := NewInteractiveSelector(images, selectorOpts...)
-	choice.selector = selector
-	current, _ := selector.Current()
-	choice.current = current
-
-	icon := NewIcon(width, height, func() string { return choice.current })
-	choice.Icon = icon
-	choice.Icon.SetImage(current)
+	if cfg.onChange != nil {
+		selectorOpts = append(selectorOpts, WithSelectorChange[string](cfg.onChange))
+	}
+	choice.selector = NewInteractiveSelector(images, selectorOpts...)
 	return choice
+}
+
+// Draw blits the selected image (decoded at construction).
+func (c *InteractiveIconChoice) Draw(ctx ui.Context) { c.sheet.draw(ctx, c.selector.Index()) }
+
+// Image is the selected image's PNG payload.
+func (c *InteractiveIconChoice) Image() string {
+	img, _ := c.selector.Current()
+	return img
 }
 
 // Enabled reports whether the choice reacts to input.
@@ -76,23 +77,19 @@ func (c *InteractiveIconChoice) Enabled() bool {
 func (c *InteractiveIconChoice) SetEnabled(v bool) {
 	c.selector.SetEnabled(v)
 	if !v {
-		c.Icon.SetSelected(false)
+		c.SetSelected(false)
 	}
 }
 
 // Interact processes navigation commands and updates the active icon image.
 func (c *InteractiveIconChoice) Interact(cmd ui.UserCommand) bool {
-	handled := c.selector.Handle(cmd)
-	if handled {
+	if c.selector.Handle(cmd) {
 		if cmd == ui.ESC || cmd == ui.BACK {
-			return c.Icon.WidgetBase.Interact(cmd)
+			return c.WidgetBase.Interact(cmd)
 		}
-		image, _ := c.selector.Current()
-		c.current = image
-		c.Icon.SetImage(image)
 		return true
 	}
-	return c.Icon.WidgetBase.Interact(cmd)
+	return c.WidgetBase.Interact(cmd)
 }
 
 // Selector provides access to the underlying selector for advanced coordination.

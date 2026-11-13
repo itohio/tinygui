@@ -4,11 +4,14 @@ import (
 	ui "github.com/itohio/tinygui"
 )
 
-// InteractiveIcon renders one of several PNG icons and swaps the active image on user commands.
+// InteractiveIcon renders one of several PNG icons and swaps the active
+// image on user commands. The icons are decoded once, at construction
+// (w·h·2 bytes each); a press only changes the index.
 type InteractiveIcon struct {
-	*Icon
+	ui.WidgetBase
 
 	icons    []string
+	sheet    iconSheet
 	index    int
 	external *int
 	onChange func(int)
@@ -44,11 +47,11 @@ func WithIconDisabled() InteractiveIconOption {
 
 // NewInteractiveIcon constructs an icon selector that cycles through the provided icons.
 func NewInteractiveIcon(width, height uint16, icons []string, opts ...InteractiveIconOption) *InteractiveIcon {
-	icon := NewIcon(width, height, func() string { return "" })
 	i := &InteractiveIcon{
-		Icon:    icon,
-		icons:   icons,
-		enabled: true,
+		WidgetBase: ui.NewWidgetBase(width, height),
+		icons:      icons,
+		sheet:      newIconSheet(width, height, icons),
+		enabled:    true,
 	}
 	for _, opt := range opts {
 		opt(i)
@@ -66,7 +69,7 @@ func (i *InteractiveIcon) Enabled() bool {
 func (i *InteractiveIcon) SetEnabled(v bool) {
 	i.enabled = v
 	if !v {
-		i.Icon.SetSelected(false)
+		i.SetSelected(false)
 	}
 }
 
@@ -85,9 +88,9 @@ func (i *InteractiveIcon) Interact(cmd ui.UserCommand) bool {
 		return true
 	case ui.ESC, ui.BACK:
 		i.load(false)
-		return i.Icon.WidgetBase.Interact(cmd)
+		return i.WidgetBase.Interact(cmd)
 	default:
-		return i.Icon.WidgetBase.Interact(cmd)
+		return i.WidgetBase.Interact(cmd)
 	}
 }
 
@@ -113,7 +116,6 @@ func (i *InteractiveIcon) shift(delta int) {
 
 func (i *InteractiveIcon) load(notify bool) {
 	if len(i.icons) == 0 {
-		i.SetImage("")
 		return
 	}
 	index := i.currentIndex()
@@ -129,7 +131,6 @@ func (i *InteractiveIcon) currentIndex() int {
 
 func (i *InteractiveIcon) applyIndex(index int, notify bool) {
 	if len(i.icons) == 0 {
-		i.SetImage("")
 		return
 	}
 	if index < 0 {
@@ -142,8 +143,18 @@ func (i *InteractiveIcon) applyIndex(index int, notify bool) {
 	if i.external != nil {
 		*i.external = index
 	}
-	i.SetImage(i.icons[index])
 	if notify && i.onChange != nil {
 		i.onChange(index)
 	}
+}
+
+// Draw blits the current icon (decoded at construction).
+func (i *InteractiveIcon) Draw(ctx ui.Context) { i.sheet.draw(ctx, i.index) }
+
+// Image is the current icon's PNG payload ("" without icons).
+func (i *InteractiveIcon) Image() string {
+	if i.index < 0 || i.index >= len(i.icons) {
+		return ""
+	}
+	return i.icons[i.index]
 }
