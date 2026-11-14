@@ -191,7 +191,9 @@ func (c *Base[T]) Draw(ctx ui.Context) {
 			}
 			continue
 		}
-		item.Draw(localCtx)
+		if inClip(localCtx, item) { // a band it doesn't reach: nothing to draw
+			item.Draw(localCtx)
+		}
 		if c.layouter == nil {
 			continue
 		}
@@ -217,7 +219,7 @@ func (c *Base[T]) drawArranged(ctx ui.Context, w, h int16) {
 		ctx.AddPos(ox+rects[i].X-px, oy+rects[i].Y-py)
 		visible := childVisible(ctx, item)
 		c.setVisibility(i, item, visible)
-		if visible {
+		if visible && inClip(ctx, item) {
 			item.Draw(ctx)
 		}
 	}

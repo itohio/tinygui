@@ -26,9 +26,10 @@ type RectangleDisplayer interface {
 }
 
 // Clipper is implemented by displays that hold only part of the screen at a
-// time, such as one band of a framebuffer drawn band by band. Widgets that
-// draw many primitives can skip the ones entirely outside Clip; drawing
-// outside it is still safe, only wasted work.
+// time, such as one band of a framebuffer drawn band by band. Containers
+// skip children entirely outside Clip (their visibility stays the
+// container's box), and widgets that draw many primitives can skip the ones
+// outside it; drawing outside it is still safe, only wasted work.
 type Clipper interface {
 	Clip() (x, y, w, h int16)
 }
