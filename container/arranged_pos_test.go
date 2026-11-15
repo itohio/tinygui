@@ -98,7 +98,7 @@ func (s *seen) OnVisible(v bool)             { s.got = append(s.got, v) }
 
 // A child replaced in place (same index, same number of children) is told it
 // is visible on its first draw, and the child it replaced that it is gone
-// (verify TG-1-postcommit R1: the state was per index and only reset when
+// (found in review: the state was per index and only reset when
 // the length changed, so the new child never heard OnVisible).
 func TestChildReplacedInPlaceGetsOnVisible(t *testing.T) {
 	old, other := &seen{WidgetBase: ui.NewWidgetBase(10, 10)}, &seen{WidgetBase: ui.NewWidgetBase(10, 10)}

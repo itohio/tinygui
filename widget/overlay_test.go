@@ -149,7 +149,7 @@ func (r *fillRecorder) FillRectangle(x, y, w, h int16, _ color.RGBA) error {
 }
 
 // A bound index past the end opens on the last option and chooses it; a
-// dropdown with no options doesn't open (verify B-F3: these panicked).
+// dropdown with no options doesn't open (found in review: these panicked).
 func TestDropdownClampsItsIndexAndNeedsOptions(t *testing.T) {
 	ctx := ui.NewContext(nopDisplay{200, 100}, 200, 100, 0, 0)
 	idx := 7
@@ -188,7 +188,7 @@ func TestDropdownClampsItsIndexAndNeedsOptions(t *testing.T) {
 }
 
 // A list that fits neither below nor above the dropdown stays on screen
-// (verify B-F4: it opened above at y = -42).
+// (found in review: it opened above at y = -42).
 func TestDropdownListStaysOnScreen(t *testing.T) {
 	idx := 0
 	dd := widget.NewDropdown(60, style, []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, &idx, nil) // 92 px list

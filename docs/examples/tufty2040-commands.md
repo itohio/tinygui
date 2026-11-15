@@ -31,7 +31,7 @@ Same meaning on every page (owner 2026-11-12: "up and down … A, B, and C … s
 ## How to send
 
 - **USB serial** (USB CDC, any baud rate): one command per line, `\n`-terminated. The badge reports USB serial number `df6750955f2a3536` (its flash unique ID, the same number MicroPython reported); find it by that, not by port name.
-- **Host tool**: `~/src/tmp/tinygui/badgectl` (local, not in the repo): `badgectl a up up a` sends commands and prints the replies; `--grab` adds a badge-cam photo after each; `--tour` reboots the badge and replays the simulator tour, saving framebuffer dumps, badge-cam photos and simulator PNGs side by side; `--monitor` prints the console (for testing the buttons by hand).
+- **Host tool** `badgectl` (not in this repo): `badgectl a up up a` sends commands and prints the replies; `--grab` adds a badge-cam photo after each; `--tour` reboots the badge and replays the simulator tour, saving framebuffer dumps, badge-cam photos and simulator PNGs side by side; `--monitor` prints the console (for testing the buttons by hand).
 - Serial handlers only queue the command (16 deep, extra lines dropped); `App.Update` executes it at the start of the next frame on the UI goroutine ([[concurrency]]).
 
 ## Commands

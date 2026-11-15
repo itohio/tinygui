@@ -154,7 +154,7 @@ func (c *canvas565) DrawRGBBitmap8(int16, int16, []uint8, int16, int16) error { 
 
 // The RGB565 strip path draws exactly the pixels of the rectangle path, for
 // round and square cells, with and without gaps (round with gap 0: the
-// corners are Off on both paths, verify B-F1).
+// corners are Off on both paths, found in review).
 func TestCellGridStripsMatchRectangles(t *testing.T) {
 	pal := []color.RGBA{dim, lit, {10, 200, 90, 255}}
 	cells := []uint8{0, 1, 2, 9, 2, 1, 1, 0, 2, 0, 0, 1}

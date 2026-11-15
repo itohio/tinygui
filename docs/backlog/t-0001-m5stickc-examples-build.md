@@ -78,7 +78,7 @@ Out of scope here (separate findings): panel geometry (F-02), layout overflow in
 - [ ] `GOTOOLCHAIN=local GOPROXY=off tinygo build -target=m5stick-c -tags=m5stickc -o /dev/null ./examples/choice` exits 0.
 - [ ] Same for `./examples/gauge`.
 - [ ] `GOTOOLCHAIN=local GOPROXY=off go test ./ ./container ./layout ./widget` passes.
-- [ ] Red first: a minimal program calling `ui.NewSerialReader(machine.Serial)` fails `tinygo build -target=m5stick-c` before Part A (`undefined: machine.Serialer`, reproduced by verify) and builds after it.
+- [ ] Red first: a minimal program calling `ui.NewSerialReader(machine.Serial)` fails `tinygo build -target=m5stick-c` before Part A (`undefined: machine.Serialer`, reproduced) and builds after it.
 - [ ] Regression (passes before and after): the same program builds for `-target=pico`, so the reader still accepts the machine type on a USB target.
 - [ ] [[examples]] and [[baseline]] show the new build status.
 

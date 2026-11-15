@@ -111,7 +111,7 @@ func TestInteractiveLabelTextWithoutAllocating(t *testing.T) {
 	check.Zero(t, testing.AllocsPerRun(100, func() { _ = fl.displayText(); _ = il.displayText() }))
 }
 
-// The text path's corners (verify TG-1-postcommit R11): negative numbers;
+// The text path's corners (found in review): negative numbers;
 // a custom formatter longer than the buffer is cut (at a rune boundary,
 // keeping the closing mark) and never allocates, selected or not; a number
 // type's String method isn't used (names need WithFormatter); Text is a

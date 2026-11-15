@@ -181,7 +181,7 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 			container.WithChildren[ui.Widget](widget.NewLabel(60, 11, font, func() string { return "a" }, fg), widget.NewSeparator(60, 3, fg))),
 			[]ui.UserCommand{ui.NEXT, ui.PREV}},
 		// icons decoded at construction: a press switches, a draw blits
-		// (verify TG-1-postcommit R7: re-decoding per press, 32–48 allocations)
+		// (found in review: re-decoding per press, 32–48 allocations)
 		{"InteractiveIcon", widget.NewInteractiveIcon(8, 8, icons), []ui.UserCommand{ui.UP, ui.DOWN, ui.UP}},
 		{"InteractiveIconChoice", widget.NewInteractiveIconChoice(8, 8, icons), []ui.UserCommand{ui.UP, ui.DOWN, ui.UP}},
 		{"Base(Wrap)", container.New[ui.Widget](200, 40, container.WithArranger[ui.Widget](&layout.Wrap{Gap: 2}),
@@ -274,7 +274,7 @@ func TestWidgetsDrawAndInteractWithoutAllocating(t *testing.T) {
 		t.Errorf("Ring with a changing value: %d allocations in %d draws", n, runs)
 	}
 	// a screensaver: a RandomContext moved every frame, its text drawn through
-	// a reused child context (verify H-2: Clone allocated per frame)
+	// a reused child context (found in review: Clone allocated per frame)
 	fb, _ := display()
 	saver := ui.NewRandomContext(fb, 0, 100, 12)
 	text := widget.NewLabel(100, 12, font, func() string { return "saver" }, fg)

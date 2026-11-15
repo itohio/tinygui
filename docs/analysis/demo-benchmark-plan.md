@@ -18,11 +18,11 @@ What the Tufty 2040 can draw with TinyGo, measured, and the demos the owner aske
 
 ## How every step is verified (owner's standing rule)
 
-Flash the badge → drive it over USB serial (`badgectl`, [[tufty2040-commands]]) → capture with the badge cam (esp32cam's camclient snapshot, or `grab`, both with the owner's `tmp/badgecam/settings.json` once he has saved it) → compare with the host simulator and the framebuffer dump → improve → evidence per round in `docs/evidence/`. Each demo lands as small commits that build, pass their tests and were seen on the badge.
+Flash the badge → drive it over USB serial (`badgectl`, [[tufty2040-commands]]) → capture with the badge cam (`badgectl --grab`, the grab tool in `BADGECAM_GRAB`) → compare with the host simulator and the framebuffer dump → improve. Each demo lands as small commits that build, pass their tests and were seen on the badge.
 
 ## Measured (2026-11-12, `tinytufty2040/bench`)
 
-RP2040 at 200 MHz (`machine.CPUFrequency`), ST7789 on the bit-banged 8-bit parallel bus (83 ns per byte), TinyGo 0.43. Each number is the mean over 20 steps (simulations) or one call (pushes); console log in `docs/evidence/TG-1-bench.txt`.
+RP2040 at 200 MHz (`machine.CPUFrequency`), ST7789 on the bit-banged 8-bit parallel bus (83 ns per byte), TinyGo 0.43. Each number is the mean over 20 steps (simulations) or one call (pushes).
 
 | Operation | Size | Time | Note |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Lessons that shape every demo: keep division and modulo out of inner loops; push
 | **ping-pong** | full 320×240, dirty rectangles (two paddles, ball, score) | < 10 KB | physics < 0.1 ms; push of 3–4 small rectangles ≈ 1–2 ms | 60 fps possible; vsync-free tearing to check on the glass |
 | **boids** | 200–400 boids on 320×240, 4-bit frame or dirty rects | boids × 12 B (fixed-point pos/vel) ≈ 5 KB + frame | naive O(n²) 400 boids ≈ 160 000 pair checks ≈ 15–25 ms (est.); a spatial grid brings it to ≈ 3–5 ms | 30 fps with a grid |
 
-**Water at 64×64 LED style (owner's choice: a 64×64 simulation grid).** The panel is 320×240, so 64 rows fit only at a pitch of ≤ 3.75 px. Rendered with the real `CellGrid` (`docs/evidence/water-fit/fit-options.png`):
+**Water at 64×64 LED style (owner's choice: a 64×64 simulation grid).** The panel is 320×240, so 64 rows fit only at a pitch of ≤ 3.75 px. Rendered with the real `CellGrid`:
 
 | Display of the 64×64 grid | Screen area | Dot | Rows shown | Verdict |
 |---|---|---|---|---|
@@ -128,10 +128,10 @@ The showcase heap is 142 KB with peaks of 116 KB, so the 8 KB automaton fits ins
 ## Steps (each a small commit, verified on the badge)
 
 1. **done** `7d135c2` `widget.CellGrid` with round/square cells, pitch, gap, palette; host tests. `ad8809f` `ui.Clipper` so banded displays let it skip rows outside the band.
-2. **done** `bacafec` Game of Life page (60×32 cells at 5 px, ages fade, Run/Pause, Random / glider gun / Acorn / R-pentomino); badge: **17 fps** (draw 34 ms, push 18.6 ms; 14 fps before `Clipper`), framebuffer dump `docs/evidence/life-badge-dump.png`; badge-cam photo pending (camera client being rebuilt).
-3. **done** `0aef293` Water page: falling-liquid automaton on a 64×64 grid, `CellGrid` at 3 px (192×192), gravity in 8 directions on UP/DOWN, Pour, Fill, 3 steps per frame. Badge: step 7.8 ms → **5.1 ms** after one-pass depth shading; page **14 fps** (draw 31 ms, push 18.5 ms, steps 15 ms); dump `docs/evidence/water-badge-dump.png`. `1dfe41c` CellGrid copies RGB565 scanlines on bitmap displays (draw: full-screen 31.9 → 18.1 ms, Life 34 → 25 ms → **20 fps**); `765fe21` full-screen views: LEDs 5 px (64×48, round 4 px dots) or 4 px (64×60), **18 fps** on the badge, rows follow gravity; dumps `water-full5-badge-dump.png`, `water-full4-badge-dump.png`.
-4. **done** `f1ec9ee` demos share one tick / full-screen hook; `a2c9ecf` Fire page: Doom fire on 64×48, `CellGrid` 3 px in the page, 5 px full screen, wind and height; badge: step **0.87 ms**, page **21 fps**, full screen **25 fps**; dumps `fire-badge-dump.png`, `fire-full-badge-dump.png`. The 8-bit indexed 160×120 variant is not built: the LED look is the owner's choice.
-5. **done** `086a7e4` scrolling tab bar (11 tabs); `3f4a0bc` Pong on `CellGrid` 64×48: CPU vs CPU in the page, you vs CPU full screen; host tests (fast-ball return, scoring and serve, ball stays on court); badge: **160 µs** per frame for the game, page **22 fps**, full screen **25 fps**; dumps `pong-badge-dump.png`, `pong-full-badge-dump.png`. Dirty rectangles not needed for the LED look.
-6. **done** Boids (Reynolds, 32/64/128) on `CellGrid` 64×48; a plain neighbour scan with early reject is enough: 64 boids **2.4 ms**/step, page **21 fps**, full **23 fps**, 128 boids **21 fps**; no spatial grid or second core needed. Two bias bugs found on the way (minimum speed vs soft walls; `>>4` rounding drove the flock into a corner). Dumps `boids-badge-dump.png`, `boids-full-badge-dump.png`.
+2. **done** `bacafec` Game of Life page (60×32 cells at 5 px, ages fade, Run/Pause, Random / glider gun / Acorn / R-pentomino); badge: **17 fps** (draw 34 ms, push 18.6 ms; 14 fps before `Clipper`).
+3. **done** `0aef293` Water page: falling-liquid automaton on a 64×64 grid, `CellGrid` at 3 px (192×192), gravity in 8 directions on UP/DOWN, Pour, Fill, 3 steps per frame. Badge: step 7.8 ms → **5.1 ms** after one-pass depth shading; page **14 fps** (draw 31 ms, push 18.5 ms, steps 15 ms). `1dfe41c` CellGrid copies RGB565 scanlines on bitmap displays (draw: full-screen 31.9 → 18.1 ms, Life 34 → 25 ms → **20 fps**); `765fe21` full-screen views: LEDs 5 px (64×48, round 4 px dots) or 4 px (64×60), **18 fps** on the badge, rows follow gravity.
+4. **done** `f1ec9ee` demos share one tick / full-screen hook; `a2c9ecf` Fire page: Doom fire on 64×48, `CellGrid` 3 px in the page, 5 px full screen, wind and height; badge: step **0.87 ms**, page **21 fps**, full screen **25 fps**. The 8-bit indexed 160×120 variant is not built: the LED look is the owner's choice.
+5. **done** `086a7e4` scrolling tab bar (11 tabs); `3f4a0bc` Pong on `CellGrid` 64×48: CPU vs CPU in the page, you vs CPU full screen; host tests (fast-ball return, scoring and serve, ball stays on court); badge: **160 µs** per frame for the game, page **22 fps**, full screen **25 fps**. Dirty rectangles not needed for the LED look.
+6. **done** Boids (Reynolds, 32/64/128) on `CellGrid` 64×48; a plain neighbour scan with early reject is enough: 64 boids **2.4 ms**/step, page **21 fps**, full **23 fps**, 128 boids **21 fps**; no spatial grid or second core needed. Two bias bugs found on the way (minimum speed vs soft walls; `>>4` rounding drove the flock into a corner).
 7. **done** Demo menu (owner 2026-11-12): `815b6f4` layout arrangers (Row/Column with weights and alignment, Wrap, Table, Anchor; inventory in [[layouts-and-overlays]]); `a0b917e` Life 64×48 + full screen; `2284816` Demos page with a live Life tile, `516d3ab` the other four tiles; `3698e5d` + `49f58e1` allocation fixes (findings F-34, F-35: ~70 → 7 GCs in the same window, water's tick 22.6 → 12.2 ms); `90a2821` + `262e609` + `ab01c77` overlays over the live tiles (dropdown, choice question, modal confirm, popup). Badge: Demos page **14–15 fps** at ×1; `tiles` budget (µs, tick / draw): Life 2 290 / 4 300 (focused, 2 px), water 12 230 / 2 450, fire 800 / 2 400, pong 170 / 2 400, boids 2 060 / 2 440. Water's three steps per frame are the largest share.
 8. Frame cost shared by every page: the UI redraws whole in 3 bands (draw 31–34 ms on every page). Redrawing only changed widgets is the next large fps win (library: dirty tracking).

@@ -77,7 +77,7 @@ func main() {
 }
 ```
 
-Checked on the host with a framebuffer display and the button script `ok up up ok down ok ok`: the gauge goes 40 → 45 → 50 and stays at 50 after the commit; the toggle shows ON after the second `ok` (frames in `docs/evidence/guides/`).
+Checked on the host with a framebuffer display and the button script `ok up up ok down ok ok`: the gauge goes 40 → 45 → 50 and stays at 50 after the commit; the toggle shows ON after the second `ok`.
 
 ## Watch out for
 

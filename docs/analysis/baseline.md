@@ -14,7 +14,7 @@ revision: b140156
 
 # Baseline
 
-Measured facts at `b140156`, 2026-11-10, darwin/arm64, Go 1.27.2, TinyGo 0.43.0 (LLVM 22.1.4), drivers v0.31.0, tinyfont v0.6.0. Every Go/TinyGo command ran with `GOTOOLCHAIN=local GOPROXY=off`. Full command log with outputs: `~/src/docs/evidence/TG-1a-baseline.md` (local, not in the repo). Part of [[analysis]].
+Measured facts at `b140156`, 2026-11-10, darwin/arm64, Go 1.27.2, TinyGo 0.43.0 (LLVM 22.1.4), drivers v0.31.0, tinyfont v0.6.0. Every Go/TinyGo command ran with `GOTOOLCHAIN=local GOPROXY=off`. Part of [[analysis]].
 
 ## Host tests
 
@@ -71,7 +71,7 @@ Site list and classification: [[memory-and-buffers#Heap allocations]].
 
 ## Host probes
 
-Throwaway tests in `~/src/tmp/tinygui/probe/` (module with `replace github.com/itohio/tinygui => ../../../tinygui`; copy in the evidence folder), `go test -count=1 -v ./...`:
+Throwaway tests in a separate module (with `replace github.com/itohio/tinygui` pointing at this repo), `go test -count=1 -v ./...`:
 
 ```
 TestGridStableAcrossFrames   FAIL  frame1=[0 10] frame2=[0 30] for the 4th child (Grid(0,0), width 25, children 10x10,10x10,10x10,10x30)

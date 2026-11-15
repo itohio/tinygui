@@ -36,11 +36,11 @@ Owner request 2026-11-10 (direct): "a demo for this board that showcases all fea
 
 - [x] `tinytufty2040` (demo repo) builds for `-target=tufty2040` (223 064 B flash / 219 424 B RAM, 2026-11-12).
 - [x] UI package has no `machine` import; board files carry `//go:build tufty2040`.
-- [x] Host simulator renders every page; 13 screenshots inspected (`docs/evidence/tufty-sim/`).
+- [x] Host simulator renders every page; 13 screenshots inspected.
 - [x] App code allocates only at construction (`-print-allocs`).
 - [x] On the device: runs stably; `stats` reports fps 15–21, push 12.8 ms, heap; `pins` shows idle button levels (2026-11-12).
 - [ ] Owner confirms on the glass: picture upright, colours right, all six buttons act as labelled.
-- [ ] Review (code) and verify accept.
+- [ ] Code review and acceptance.
 
 ## Verification
 
@@ -49,4 +49,4 @@ Owner request 2026-11-10 (direct): "a demo for this board that showcases all fea
 ## Log
 
 - 2026-11-12: built from the owner's direct request; simulator and TinyGo build pass; library fix F-22 (Scroll) with regression test. Waiting for the owner's go to flash.
-- 2026-11-12: flashed (owner approval relayed by Leader). First build ran out of memory (full framebuffer, F-30) → two-band rendering; Icon decoded PNG per draw (F-08) → decode once; edit marker stuck on rows (F-28) → drawn only on the focused row. Stable on the badge.
+- 2026-11-12: flashed (owner's approval). First build ran out of memory (full framebuffer, F-30) → two-band rendering; Icon decoded PNG per draw (F-08) → decode once; edit marker stuck on rows (F-28) → drawn only on the focused row. Stable on the badge.

@@ -86,7 +86,7 @@ func NewIconArray(w, h uint16, image ...func() string) []ui.Widget {
 // iconSheet holds a set of icons decoded once, at construction, into one
 // RGB565 buffer (n·w·h pixels): switching icons on a press is an index
 // change, drawing one a single blit — no PNG decode, no allocation after
-// setup (verify TG-1-postcommit R7: re-decoding on every press made 32–48
+// setup (found in review: re-decoding on every press made 32–48
 // allocations).
 type iconSheet struct {
 	w, h int16

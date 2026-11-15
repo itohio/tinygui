@@ -1,7 +1,7 @@
 // Package check is the library's test assertions on plain `testing`. The
 // tests used testify, whose reflection tricks panic under `tinygo test`
 // ("reflect.Value has no flag field") before any test runs, so the
-// packages' tests never ran on TinyGo (verify TG-1-postcommit2/3). These
+// packages' tests never ran on TinyGo (found in review). These
 // helpers keep testify's call shapes (t first, want before got, optional
 // message as a format string and its arguments) and stop the test on the
 // first failure, as require does.

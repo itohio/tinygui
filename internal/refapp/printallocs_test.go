@@ -19,7 +19,7 @@ import (
 // reviewed as setup-only (constructors, options, growth guards):
 // allocs_allowlist.txt lists each function with its number of sites, so a
 // new site — even inside an already listed function — fails the test until
-// it is reviewed and the count updated (verify TG-1-postcommit R8). Needs
+// it is reviewed and the count updated (found in review). Needs
 // `tinygo` on PATH (skipped otherwise); REFAPP_ALLOCS_DUMP=1 prints the
 // current sites in the allowlist's format. Allocations inside runtime
 // helpers (string concatenation, conversions) are reported at the runtime,
@@ -101,7 +101,7 @@ func TestLibraryAllocatesOnlyInSetup(t *testing.T) {
 // go test runs the TinyGo checks too when tinygo is on PATH: the allocation
 // tests under -gc=leaking (the boards' kind of allocator; plain tinygo test
 // counts as well, through runtime.mallocs), so a TinyGo-only allocation
-// fails a plain `go test ./internal/refapp` (verify TG-1-postcommit R8).
+// fails a plain `go test ./internal/refapp` (found in review).
 func TestTinyGoCountsNoAllocations(t *testing.T) {
 	if runtime.Compiler != "gc" {
 		t.Skip("this is the TinyGo run itself")

@@ -90,7 +90,7 @@ func TestArrangersDoNotAllocate(t *testing.T) {
 	}
 }
 
-// Large weights don't overflow the share (verify B-F2: shared*weight was
+// Large weights don't overflow the share (found in review: shared*weight was
 // int16; 200:55 in 320 put the second cell at x = -6).
 func TestRowLargeWeightsDoNotOverflow(t *testing.T) {
 	s := sizes{{0, 1}, {0, 1}}

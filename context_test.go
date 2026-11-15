@@ -7,7 +7,7 @@ import (
 
 // A screensaver moves its RandomContext once per frame and draws through
 // ChildContext: no allocation per frame (Clone allocated a context each
-// call, verify H-2), and the origin stays on the display.
+// call, found in review), and the origin stays on the display.
 func TestRandomContextMovesWithoutAllocating(t *testing.T) {
 	d := &pixelSet{}
 	c := NewRandomContext(d, 0, 150, 40)
@@ -57,7 +57,7 @@ func TestChildContextUnderAnyParent(t *testing.T) {
 
 // A container drawn into a RandomContext through ChildContext is moved
 // around (burn-in protection), as Clone moved it — without allocating
-// (verify TG-1-postcommit R12: ChildContext stopped moving it, so the
+// (found in review: ChildContext stopped moving it, so the
 // protection was silently off).
 func TestChildContextMovesARandomContextParent(t *testing.T) {
 	d := &pixelSet{}

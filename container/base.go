@@ -26,7 +26,7 @@ type Base[T ui.Widget] struct {
 	visible []int8 // -1 not drawn yet, 0 hidden, 1 visible
 	// shown[i] is the child visible[i] belongs to: a child replaced in place
 	// (same index, same length) is told as if first drawn, the old one told
-	// it is gone (verify TG-1-postcommit R1)
+	// it is gone (found in review)
 	shown []ui.Widget
 
 	paddingX int16

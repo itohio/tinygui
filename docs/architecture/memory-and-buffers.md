@@ -62,7 +62,7 @@ Measured (TinyGo 0.43, Go 1.27, 2026-11-13: 10 kept `new([16]byte)` appended to 
 
 So under TinyGo's default GC `Mallocs` is not usable; `runtime.mallocs` is (10 kept `new([16]byte)`: `Mallocs` +0, `runtime.mallocs` +10 under the default GC; +10 and +10 under `-gc=leaking`). Every check counts the exact total over its whole sequence and wants 0: `AllocsPerRun`'s per-run integer average passes an allocation every few runs (one every 7th mux line passed all the old checks).
 
-On Go, `mallocs()` counts from the heap profile (`runtime.MemProfileRate = 1`; `runtime.GC` publishes it, `runtime.MemProfile` reads it): the allocations with this module's code on the stack, except the runtime's own caches for interface type assertions and type switches (`runtime.buildTypeAssertCache`, `runtime.buildInterfaceSwitchCache` in `runtime/iface.go`). The runtime fills those per-call-site caches at random (about 1 miss in 1000, doubled as they grow): about 180 objects over the first ~1500 soak rounds, a different count each run (`docs/evidence/go-soak-allocs/`). Leaving out exactly those stacks makes the Go count exact and the same every run, from the first round; TinyGo has no such cache.
+On Go, `mallocs()` counts from the heap profile (`runtime.MemProfileRate = 1`; `runtime.GC` publishes it, `runtime.MemProfile` reads it): the allocations with this module's code on the stack, except the runtime's own caches for interface type assertions and type switches (`runtime.buildTypeAssertCache`, `runtime.buildInterfaceSwitchCache` in `runtime/iface.go`). The runtime fills those per-call-site caches at random (about 1 miss in 1000, doubled as they grow): about 180 objects over the first ~1500 soak rounds, a different count each run. Leaving out exactly those stacks makes the Go count exact and the same every run, from the first round; TinyGo has no such cache.
 
 The root, `layout` and `container` tests use `internal/check` (assertions on plain `testing`), so they run under `tinygo test -gc=leaking` too. testify panics under `tinygo test` (reflection) before any test runs. The `widget` package's tests still use testify and are host checks. The library-wide allocation checks live in `internal/refapp`.
 
@@ -80,7 +80,7 @@ Limits: the static check sees only sites the compiler places; allocations inside
 
 Fixed on the way (findings F-38…F-43): the visibility map, the navigator's paths, `Log`'s copy per line, `ScrollChoice`'s cursor, `InteractiveLabel`'s `Sprintf` text (`e335450`), `ChildContext`'s `Clone` fallback under scroll offsets (`f35331d`). The per-frame `Clone` and per-event sites the table below found at `b140156` are gone.
 
-Outside the library: tinyfont's `const1bit` fonts allocate per rune inside their `GetGlyph` (verify A-6); `ui.DrawText` with a regular `tinyfont.Font` (e.g. `proggy`, `freemono`) allocates nothing. A `Label`'s text provider and option callbacks are app code: they must not allocate either for a GC-free app (the Tufty showcase uses fixed text buffers).
+Outside the library: tinyfont's `const1bit` fonts allocate per rune inside their `GetGlyph`; `ui.DrawText` with a regular `tinyfont.Font` (e.g. `proggy`, `freemono`) allocates nothing. A `Label`'s text provider and option callbacks are app code: they must not allocate either for a GC-free app (the Tufty showcase uses fixed text buffers).
 
 At `b140156` (before TG-1), static analysis on the demos (build-fixed copy, [[t-0001-m5stickc-examples-build]]) found:
 

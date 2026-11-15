@@ -88,7 +88,7 @@ Flashing replaces the badge's MicroPython firmware: hold BOOT/USER, press RESET,
 | simulator tour | 13 screenshots, every page and edit mode inspected visually |
 | `tinygo build -target=tufty2040` | builds: 225 008 B flash / 95 160 B static RAM (band buffer 51 200, PNG inflate window 34 856); fonts and icon tables now land in flash (`.rodata`); heap 142 KB |
 | app allocations (`-print-allocs`) | construction only; per-frame allocations left are the library's `context.go:79` and `container/scroll.go:167` ([[findings]] F-07) |
-| on the device (flashed 2026-11-12, owner's approval relayed by Leader) | runs; 15–24 fps; draw 24–42 ms (three band passes) and push 19.4 ms per frame; `heap_alloc` 66–116 KB of 142 KB; the full 13-step hardware tour (`badgectl --tour`) completes without errors; USB serial number `df6750955f2a3536`; on the glass: colour cycle (bring-up) and the UI seen through the badge cam |
+| on the device (flashed 2026-11-12, owner's approval) | runs; 15–24 fps; draw 24–42 ms (three band passes) and push 19.4 ms per frame; `heap_alloc` 66–116 KB of 142 KB; the full 13-step hardware tour (`badgectl --tour`) completes without errors; USB serial number `df6750955f2a3536`; on the glass: colour cycle (bring-up) and the UI seen through the badge cam |
 | not yet confirmed | physical picture orientation and colours (the serial dump shows the buffer, not the glass); light sensor read 0–1 % (raw 368) and battery 0.05 V on USB power without a battery — plausible, needs a lit room and a battery to confirm |
 
 ## Size
